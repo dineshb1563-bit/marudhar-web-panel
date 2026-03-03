@@ -239,7 +239,7 @@ const getNamepage =()=>{
           <AddPaymentModal/>
           <AddAgent/>
           
-          {/* <AddProgram />  */}
+          <AddProgram /> 
             <AddMember/>
           <RequestSection />
           {/* <Tooltip title="Messages">
