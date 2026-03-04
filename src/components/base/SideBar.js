@@ -113,7 +113,7 @@ const SideBar = ({ collapsed }) => {
           {!collapsed && (
             <div className="ml-4">
               <h2 className="font-bold text-xl text-gray-800">
-                Trust Manager
+              Marudhar  Admin
               </h2>
               <p className="text-xs text-gray-500 mt-1">Admin Panel</p>
             </div>

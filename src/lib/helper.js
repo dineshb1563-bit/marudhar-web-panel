@@ -10,6 +10,7 @@ import {
   
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { createSearchIndex } from "./commonFun";
 
 // मान लीजिए कि 'db' आपकी Firebase इनिशियलाइज़ेशन फ़ाइल से आयात किया गया है
 // import { db } from "./firebase"; 

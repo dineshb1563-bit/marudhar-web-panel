@@ -1101,7 +1101,7 @@ const AddMember = () => {
                       label="वारिसदार आधार संख्या"
                       rules={[
                         { required: true, message: 'आवश्यक' },
-                        { len: 6, message: '12 अंक होने चाहिए' }
+                        { len: 12, message: '12 अंक होने चाहिए' }
                       ]}
                     >
                       <Input placeholder="12 अंकों का आधार संख्या" />
