@@ -13,6 +13,7 @@ import NotoSansDevanagari from '@/app/api/helperfile/static/font/NotoSansDevanag
 import NotoSansDevanagariBold from '@/app/api/helperfile/static/font/NotoSansDevanagariBold';
 import logo from '@/app/api/helperfile/Images/logo';
 import krinshnaImage from '@/app/api/helperfile/Images/KrinshnaImage';
+import frameImg from '@/app/api/helperfile/Images/frameImg';
 
 
 // Register Devanagari Font
@@ -34,19 +35,19 @@ const styles = StyleSheet.create({
   page: {
     backgroundColor: '#ffffff',
     fontFamily: 'NotoSansDevanagari',
-    padding: 18,
     width: '210mm',
     height: '148mm',
+    position: 'relative',
   },
   outerBorder: {
-    border: '4px solid #d4af37',
-    padding: 8,
+    // border: '4px solid #d4af37',
+    padding: 15,
     height: '100%',
     position: 'relative',
     borderRadius: 4,
   },
   innerBorder: {
-    border: '2px solid #d4af37',
+    // border: '2px solid #d4af37',
     padding: 14,
     height: '100%',
     borderRadius: 2,
@@ -55,21 +56,23 @@ const styles = StyleSheet.create({
   topText: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingHorizontal: 4,
+    marginBottom: 5,
+    marginTop:5,
+    paddingHorizontal: 50,
   },
   smallText: {
-    fontSize: 10,
+    fontSize: 9,
     color: '#8B0000',
     fontWeight: 'bold',
     letterSpacing: 0.3,
   },
-  headerSection: {
+ headerSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 8,
-    paddingHorizontal: 4,
+    paddingHorizontal: 10,
+  
   },
   logoImage: {
     width: 68,
@@ -80,14 +83,18 @@ const styles = StyleSheet.create({
     width: 78,
     height: 68,
     borderRadius: 4,
+    position: 'absolute',
+    left: 10,
+     top: 10,
   },
   centerContent: {
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 16,
+    marginLeft: 30,
   },
   mainTitle: {
-    fontSize: 26,
+    fontSize: 27,
     color: '#8B0000',
     fontWeight: 'bold',
     marginBottom: 4,
@@ -102,18 +109,26 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   address: {
-    fontSize: 9,
-    color: '#333',
+    fontSize: 10,
+    color: '#884a17',
     textAlign: 'center',
+    fontWeight: 'bold',
     marginBottom: 3,
     lineHeight: 1.3,
     paddingHorizontal: 10,
   },
   phoneNumbers: {
+    fontSize:10,
+    color: '#884a17',
+    fontWeight: 'bold',
+    marginBottom: 3,
+    letterSpacing: 0.2,
+  },
+  regNotext:{
     fontSize: 9,
     color: '#000',
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 3,
     letterSpacing: 0.2,
   },
   schemeBox: {
@@ -124,6 +139,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
+
   schemeText: {
     fontSize: 11,
     color: '#fff',
@@ -277,18 +293,47 @@ const styles = StyleSheet.create({
     borderRadius: 3,
     marginLeft: 2,
   },
+  stamImg:{
+    width: 120,
+    height: 70,
+    position: 'absolute',
+    bottom: -20,
+     right: 40,
+                                       }
+                                       ,
+                                       framesImg:{
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    
+    width: '100%',
+    height: '100%',
+    zIndex: 1,
+  },  
+    footerLabelBox2:{
+        width:'100%',
+    position:'absolute',
+    bottom:-35
+,
+left:0,
+textAlign:'center'
+  },
+                                       
 });
 
 const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
   <Document>
     <Page size={{ width: '210mm', height: '148mm' }} style={styles.page}>
+      <Image style={styles.framesImg} src={frameImg}/>
       <View style={styles.outerBorder}>
-        <Text style={styles.serialNumber}>{data?.registrationNumber}</Text>
+        
+        {/* <Text style={styles.serialNumber}>{data?.registrationNumber}</Text> */}
         <View style={styles.innerBorder}>
           {/* Top Text */}
           <View style={styles.topText}>
-            <Text style={styles.smallText}>॥ श्री गणेशाय नमः ॥</Text>
-            <Text style={styles.smallText}>॥ श्री साँवलाजी भगवान नमः ॥</Text>
+          <Text style={styles.smallText}>॥ श्री सोनाणा खेतलाजी नमः ॥</Text>
+                   <Text style={styles.smallText}>॥ श्री गणेशाय नमः ॥</Text>
+                   <Text style={styles.smallText}>॥ श्री सुन्धा माताजी नमः ॥</Text>
           </View> 
 
           {/* Watermark */}
@@ -298,31 +343,29 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
           />
 
           {/* Header Section */}
-          <View style={styles.headerSection}>
-            <Image 
-              src={krinshnaImage}
-              style={styles.logoImage}
-            />
-            
-            <View style={styles.centerContent}>
-              <Text style={styles.mainTitle}>श्री साँवलाजी सेवा संस्थान</Text>
-              <Text style={styles.subTitle}>अहमदाबाद-गुजरात</Text>
-              <Text style={styles.address}>
-                20/2, शिवम् फ्लेट, आनंद फ्लेट पुलिस चौकी के पास, बापूनगर, अहमदाबाद
-              </Text>
-              <Text style={styles.phoneNumbers}>
-                9723878021 / 8511878021 / 9408323975
-              </Text>
-              <View style={styles.schemeBox}>
-                <Text style={styles.schemeText}>{selectedProgram?.hiname}</Text>
-              </View>
-            </View>
-
-            <Image 
-           src={logo}
-              style={styles.logoImage1}
-            />
-          </View>
+                <View style={styles.headerSection}>
+          <Image 
+                      src={logo}  
+                      style={styles.logoImage1}
+                    />
+                    <View style={styles.centerContent}>
+                      <Text style={styles.mainTitle}>मरुधर जन कल्याण सेवा संस्थान</Text>
+                      <Text style={styles.address}>
+                        कार्यालय पता : मु. पो. गेलावास तह. रोहट जिला - पाली ( राजस्थान) 306421
+                      </Text>
+                      <Text style={styles.phoneNumbers}>
+                   संथापक : D.R. Bhati 99823 04730 / 90793 91818
+                      </Text>
+                       <Text style={styles.regNotext}>
+                  Regd No. COOP/2025/PALI/500486
+                      </Text>
+                      <View style={styles.schemeBox}>
+                        <Text style={styles.schemeText}>{selectedProgram?.hiname}</Text>
+                      </View>
+                    </View>
+        
+                  
+                  </View>
 
           {/* Member ID Box */}
           <View style={styles.memberIdBox}>
@@ -422,12 +465,14 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
 
           {/* Details Section */}
           {
-            selectedProgram?.noteLine && <View style={styles.detailsSection}>
-            <Text style={{
-            }}>
-             {selectedProgram?.noteLine}
-            </Text>
-          </View>
+          //    <View style={styles.detailsSection}>
+          // <Text style={{
+          //                fontSize: 13,
+          //                color: '#000'
+          //                }}>
+          //                संस्था में योगदान के लिए आपको सह धन्यवाद
+          //              </Text>
+          // </View>
           }
        
 
@@ -441,10 +486,20 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
 
             {/* Right Side - Signature */}
             <View style={styles.rightFooter}>
-              <Text style={styles.footerValue}>राजेंद्र कुमार बाबूलाल घांची</Text>
-              <Text style={styles.footerLabel}>संस्थापक</Text>
-              {/* <Text style={styles.signatureText}>हस्ताक्षर</Text> */}
+               <Image style={styles.stamImg} src={"/Images/WHATSS_SIGN.png"}/>
+              {/* <Text style={styles.footerValue}>राजेंद्र कुमार बाबूलाल घांची</Text> */}
+              {/* <Text style={styles.footerLabel}>संस्थापक</Text> */}
+              <Text style={styles.signatureText}>हस्ताक्षर</Text>
             </View>
+               <View style={styles.footerLabelBox2}>
+            
+                        <Text style={{
+                          fontSize: 11,
+                          color: '#884a17'
+                        }}>
+                          नोट: प्रमाण-पत्र संभाल कर रखें। यह आपकी सदस्यता का आधिकारिक दस्तावेज़ है।
+                        </Text>
+                        </View>
           </View>
         </View>
       </View>

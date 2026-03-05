@@ -1,5 +1,6 @@
 import CertificateViewer from '@/components/pdfcom/Certificates';
 import Certificate from '@/components/pdfcom/Certificates/CertificateCom';
+import CertificateServerSide from '@/components/pdfcom/Certificates/CertificateComServerSide';
 import { PDFDownloadLink } from '@react-pdf/renderer';
 import { Button, Drawer, Space, Typography } from 'antd'
 import React from 'react'
@@ -41,7 +42,7 @@ const MemberCertificateCom = ({
                 borderRadius:"4px",
                 fontSize:"16px",
                 cursor:"pointer",
-            }} fileName={fileName} document={<Certificate data={{...memberData,agentPhone:memberAgent?.phone}} selectedProgram={selectedProgram} />} >
+            }} fileName={fileName} document={<CertificateServerSide data={{...memberData,agentPhone:memberAgent?.phone}} selectedProgram={selectedProgram} />} >
                 Download Pdf
             </PDFDownloadLink>
          

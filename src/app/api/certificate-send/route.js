@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import CertificateServerSide from "@/components/pdfcom/Certificates/CertificateComServerSide";
 import { renderToBuffer } from "@react-pdf/renderer";
-import Certificate from "@/components/pdfcom/Certificates/CertificateCom";
 
 export const runtime = "nodejs";
 
@@ -24,7 +23,7 @@ export async function POST(req) {
 
     // ✅ CORRECT BUFFER
     const buffer = await renderToBuffer(
-      <Certificate
+      <CertificateServerSide
         data={memberData}
         selectedProgram={selectedProgram}
       />
