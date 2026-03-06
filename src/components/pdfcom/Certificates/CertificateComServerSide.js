@@ -14,6 +14,7 @@ import NotoSansDevanagariBold from '@/app/api/helperfile/static/font/NotoSansDev
 import logo from '@/app/api/helperfile/Images/logo';
 import krinshnaImage from '@/app/api/helperfile/Images/KrinshnaImage';
 import frameImg from '@/app/api/helperfile/Images/frameImg';
+import StampImg from '@/app/api/helperfile/Images/stampImg';
 
 
 // Register Devanagari Font
@@ -486,7 +487,7 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
 
             {/* Right Side - Signature */}
             <View style={styles.rightFooter}>
-               <Image style={styles.stamImg} src={"/Images/WHATSS_SIGN.png"}/>
+               <Image style={styles.stamImg} src={StampImg}/>
               {/* <Text style={styles.footerValue}>राजेंद्र कुमार बाबूलाल घांची</Text> */}
               {/* <Text style={styles.footerLabel}>संस्थापक</Text> */}
               <Text style={styles.signatureText}>हस्ताक्षर</Text>
