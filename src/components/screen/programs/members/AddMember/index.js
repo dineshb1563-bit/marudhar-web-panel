@@ -863,14 +863,18 @@ const AddMember = () => {
                 </Row>
 
                 <Row gutter={16}>
-                  <Col span={8}>
-                    <Form.Item
-                      name="gotra"
-                      label="गोत्र (Gotra) (वैकल्पिक)"
-                    >
-                      <Input placeholder="गोत्र" />
-                    </Form.Item>
-                  </Col>
+                      <Col span={8}>
+                                  <Form.Item
+                                    name="guardianAadharNo"
+                                    label="वारिसदार आधार संख्या"
+                                    rules={[
+                                      { required: false, message: 'आवश्यक' },
+                                      { len: 12, message: '12 अंक होने चाहिए' }
+                                    ]}
+                                  >
+                                    <Input placeholder="12 अंकों का आधार संख्या" />
+                                  </Form.Item>
+                                </Col>
                   <Col span={8}>
                     <Form.Item
                       name="guardian"
@@ -937,7 +941,7 @@ const AddMember = () => {
                   <Col span={8}>
                     <Form.Item
                       name="aadhaarNo"
-                      label="आधार संख्या"
+                      label="सदस्य आधार संख्या"
                       rules={[
                         { required: true, message: 'आवश्यक' },
                         { len: 12, message: '12 अंक होने चाहिए' },
@@ -1095,18 +1099,7 @@ const AddMember = () => {
                       <Input placeholder="6 अंकों का पिनकोड" />
                     </Form.Item>
                   </Col>
-                    <Col span={8}>
-                    <Form.Item
-                      name="guardianAadharNo"
-                      label="वारिसदार आधार संख्या"
-                      rules={[
-                        { required: true, message: 'आवश्यक' },
-                        { len: 12, message: '12 अंक होने चाहिए' }
-                      ]}
-                    >
-                      <Input placeholder="12 अंकों का आधार संख्या" />
-                    </Form.Item>
-                  </Col>
+                
                 </Row>
 
                 <Form.Item

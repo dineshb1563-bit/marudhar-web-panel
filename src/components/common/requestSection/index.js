@@ -511,7 +511,6 @@ const handleRemove = async () => {
           //   const token="elaeOhCeSguPPn2QZ1N6ti:APA91bF9LLt7PsuujR3JvVg4b4gpTYRclgGQrCRXxbioOTGfZdvIp698NofahKV4RW45iiLwWWWsRpEqe2DUC1RyHc8h-xt4-hYEykNlvOdk8Mt5eb2W9ao"
           //  await sendFirebaseNotification(token,"Testing notiofication","dsjhf sdfjfh sdkjfhsdf sddkfjhsdf sdfjkf")
             setIsDrawerOpen(true)
-
           }}
           className="flex items-center gap-2 bg-white hover:bg-gray-50 border-gray-300 shadow-sm"
           type="default"

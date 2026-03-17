@@ -410,17 +410,17 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
 
             {/* Row 3 */}
             <View style={styles.row}>
-              <View style={styles.fieldGroup}>
+              {/* <View style={styles.fieldGroup}>
                 <Text style={styles.label}>गोत्र:</Text>
                 <Text style={[styles.value, { minWidth: 90 }]}>{data?.gotra || '---'}</Text>
-              </View>
+              </View> */}
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>जाति:</Text>
-                <Text style={[styles.value, { minWidth:100}]}>{data?.jati || '---'}</Text>
+                <Text style={[styles.value, { minWidth:160}]}>{data?.jati || '---'}</Text>
               </View>
               <View style={styles.fieldGroup}>
                 <Text style={styles.label}>जन्म दि.:</Text>
-                <Text style={[styles.value, { minWidth: 110 }]}>{data?.bobDate || '---'}</Text>
+                <Text style={[styles.value, { minWidth: 170 }]}>{data?.bobDate || '---'}</Text>
               </View>
             </View>
 
