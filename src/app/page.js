@@ -86,7 +86,26 @@ export default function Home() {
       description: "Agents",
     },
   ];
+// const MigrateData = async () => {
 
+//   fetch("/api/migrations-api", {
+//   method: "POST",
+//   headers: { "Content-Type": "application/json" },
+//   body: JSON.stringify({
+//     action: "migrate",
+//     userUid: user.uid,
+//     programId: selectedProgram?.id,
+//   })
+// }).then(res => res.json())
+//   .then(data => {
+//     console.log("Migration result:", data);
+//     message.success("Migration completed successfully");
+//   })
+//   .catch(err => {
+//     console.error("Migration error:", err);
+//     message.error("Migration failed");
+//   }); 
+// }
   return (
     <div className="p-4">
       {/* Stat Cards - Simple */}

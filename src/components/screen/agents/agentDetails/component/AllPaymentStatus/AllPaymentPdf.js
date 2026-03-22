@@ -591,7 +591,7 @@ const AllPaymentPdf = ({ rowData = [], agentInfo = {} }) => {
                   जनरेट: {currentDate} {currentTime}
                 </Text>
                 <Text style={styles.footerCenter}>
-                  श्री साँवलाजी सेवा संस्थान © {dayjs().year()}
+                  मरुधर जन कल्याण सेवा संस्थान © {dayjs().year()}
                 </Text>
                 <Text style={styles.footerRight}>
                   एजेंट ID: {agentInfo?.uid || 'N/A'}

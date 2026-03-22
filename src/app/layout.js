@@ -29,7 +29,7 @@ const theme = {
 };
 
 export const metadata = {
-  title: "Trust Management System",
+  title: "Marudhar Jan Kalyan Seva Trust",
   description: "A comprehensive trust management solution",
 };
 

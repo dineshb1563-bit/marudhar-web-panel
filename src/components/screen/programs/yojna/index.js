@@ -33,7 +33,7 @@ const Programs = () => {
   const [filteredData, setFilteredData] = useState(programsList);
   const [editDrawerVisible, setEditDrawerVisible] = useState(false);
   const [programToEdit, setProgramToEdit] = useState(null);
-
+console.log(programsList,'programsList')
   useEffect(()=>{
     setFilteredData(programsList)
   },[programsList])

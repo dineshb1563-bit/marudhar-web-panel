@@ -469,7 +469,7 @@ const [loadingReport, setLoadingReport] = useState(false);
                     direction: 'desc'
                 }
             );
-            
+            console.log(memberData,'memberData')
             dispatch(setgetMemberDataChange(false));
             setAllMembersData(memberData);
             

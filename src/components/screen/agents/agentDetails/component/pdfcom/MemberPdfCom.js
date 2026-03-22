@@ -687,7 +687,7 @@ const MemberListPdf = ({
                         पृष्ठ {currentPageIndex} का {totalPages}
                       </Text>
                       <Text style={styles.generatedInfo}>
-                        श्री साँवलाजी सेवा संस्थान © 2025
+                        मरुधर जन कल्याण सेवा संस्थान © 2025
                       </Text>
                     </View>
                   </View>
@@ -772,7 +772,7 @@ const MemberListPdf = ({
                 पृष्ठ {currentPageIndex} का {totalPages}
               </Text>
               <Text style={styles.generatedInfo}>
-                श्री साँवलाजी सेवा संस्थान © 2025
+                मरुधर जन कल्याण सेवा संस्थान © 2025
               </Text>
             </View>
           </View>
@@ -812,7 +812,7 @@ const MemberListPdf = ({
                       पृष्ठ {currentPageIndex} का {totalPages}
                     </Text>
                     <Text style={styles.generatedInfo}>
-                      श्री साँवलाजी सेवा संस्थान © 2025
+                      मरुधर जन कल्याण सेवा संस्थान © 2025
                     </Text>
                   </View>
                 </View>

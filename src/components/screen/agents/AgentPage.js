@@ -16,7 +16,8 @@ const {agentsList}= useSelector((state) => state.data);
   const [searchText, setSearchText] = useState('');
   const [filteredData, setFilteredData] = useState(agentsList);
   const [isAgentDrawerVisible, setIsAgentDrawerVisible] = useState(false);
-
+console.log(agentsList,"agentList")
+  
   // Filter agents based on search text
   const handleSearch = (value) => {
     setSearchText(value);
