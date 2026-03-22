@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     footerLabelBox2:{
         width:'100%',
     position:'absolute',
-    bottom:-35
+    bottom:-20
 ,
 left:0,
 textAlign:'center'
@@ -475,7 +475,21 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
           //              </Text>
           // </View>
           }
-       
+        <View style={{
+  width: '100%',
+  paddingHorizontal: 5
+}}>
+  {
+    selectedProgram?.noteLine &&
+    selectedProgram.noteLine.trim().length >= 50 && (
+      <View style={styles.detailsSection}>
+        <Text>
+          {selectedProgram.noteLine}
+        </Text>
+      </View>
+    )
+  }
+</View>
 
           {/* Footer Section */}
           <View style={styles.footerSection}>
@@ -487,15 +501,15 @@ const CertificateServerSide = ({data,selectedProgram,fontPath}) => (
 
             {/* Right Side - Signature */}
             <View style={styles.rightFooter}>
-               <Image style={styles.stamImg} src={StampImg}/>
-              {/* <Text style={styles.footerValue}>राजेंद्र कुमार बाबूलाल घांची</Text> */}
-              {/* <Text style={styles.footerLabel}>संस्थापक</Text> */}
-              <Text style={styles.signatureText}>हस्ताक्षर</Text>
+               {/* <Image style={styles.stamImg} src={StampImg}/> */}
+              <Text style={[styles.footerValue, { textAlign: 'center',width:'80%' }]}>D.R.BHATI</Text> 
+              <Text style={styles.footerLabel}>संस्थापक</Text>
+              {/* <Text style={styles.signatureText}>हस्ताक्षर</Text> */}
             </View>
                <View style={styles.footerLabelBox2}>
             
                         <Text style={{
-                          fontSize: 11,
+                          fontSize: 10,
                           color: '#884a17'
                         }}>
                           नोट: प्रमाण-पत्र संभाल कर रखें। यह आपकी सदस्यता का आधिकारिक दस्तावेज़ है।

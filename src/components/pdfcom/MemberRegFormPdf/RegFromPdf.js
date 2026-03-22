@@ -523,7 +523,7 @@ const RegFormPdf = ({data, selectedProgram}) => {
 
               {/* Organization */}
               <View style={styles.footerBox}>
-                <Text style={styles.footerValue}>मरुधर जन कल्याण सेवा संस्थान</Text>
+                <Text style={styles.footerValue}>D.R.BHATI</Text>
                 <Text style={styles.footerLabel}>संस्थापक</Text>
               </View>
             </View>
