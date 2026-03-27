@@ -589,14 +589,14 @@ const TransactionsPage = () => {
               >
                 Refresh
               </Button>
-              <Button 
+              {/* <Button 
                 icon={<DownloadOutlined />} 
                 onClick={onExport}
                 disabled={!filteredTransactions.length}
                 size="small"
               >
                 Export
-              </Button>
+              </Button> */}
             </Space>
           </Col>
           <Col>
