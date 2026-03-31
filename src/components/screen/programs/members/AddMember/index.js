@@ -1093,7 +1093,7 @@ const AddMember = () => {
                       name="pinCode"
                       label="पिन कोड"
                       rules={[
-                        { required: true, message: 'आवश्यक' },
+                        { required: false, message: 'आवश्यक' },
                         { len: 6, message: '6 अंक होने चाहिए' }
                       ]}
                     >

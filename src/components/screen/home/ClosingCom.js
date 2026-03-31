@@ -14,7 +14,9 @@ import {
   EyeOutlined, EditOutlined, CheckCircleOutlined, 
   UserOutlined, UploadOutlined, CalendarOutlined,
   FileTextOutlined, PictureOutlined, DeleteOutlined,
-  FilePdfOutlined
+  FilePdfOutlined,
+  RollbackOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { db, storage } from '@/lib/firebase';
@@ -24,6 +26,7 @@ import ClosingFormPdfDraver from './ClosingMember/ClosingFormPdfDraver';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import ClosingBannerImageDrawer from './ClosingMember/ClosingBannerImageDrawer';
 import EditPdfDataForm from './ClosingMember/EditPdfDataForm';
+import { getAuth } from 'firebase/auth';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -40,11 +43,11 @@ const ClosingCom = ({user, selectedProgram}) => {
   const [uploading, setUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [filePreview, setFilePreview] = useState(null);
-  const {message}=App.useApp();
+  const {message,modal}=App.useApp();
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isOpenBanner, setIsOpenBanner] = useState(false);
   const [isEditPdfDataOpen, setIsEditPdfDataOpen] = useState(false); // New state for PDF data editing
-
+const [revertingId, setRevertingId] = useState(null);
   // Handle Pay Status
   const handlePayStatus = async (record) => {
     try {
@@ -73,6 +76,68 @@ const ClosingCom = ({user, selectedProgram}) => {
     setSelectedFile(null);
     setFilePreview(null);
   };
+  const handleRevertClosing = (record) => {
+  modal.confirm({
+    title: 'Revert Closing Case?',
+    icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+    content: (
+      <div>
+        <p>
+          This will permanently <strong>delete all payment entries</strong> created
+          for <strong>{record.displayName}</strong>'s marriage case and reset the
+          member back to <em>accepted</em> status.
+        </p>
+        <p style={{ marginTop: 8, color: '#ff4d4f', fontSize: 13 }}>
+          ⚠️ This action cannot be undone.
+        </p>
+      </div>
+    ),
+    okText: 'Yes, Revert',
+    okButtonProps: { danger: true },
+    cancelText: 'Cancel',
+    onOk: () => doRevert(record),
+  });
+};
+
+  const doRevert = async (record) => {
+  try {
+    setRevertingId(record.id);
+ 
+    // Get current user's ID token
+    const auth = getAuth();
+    const token = await auth.currentUser.getIdToken();
+ 
+    const res = await fetch(
+      process.env.NEXT_PUBLIC_REVERT_CLOSING_MEMBERS_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId: user.uid,
+          programId: selectedProgram?.id,
+          memberId: record.id,
+        }),
+      }
+    );
+ 
+    const data = await res.json();
+ 
+    if (!res.ok) {
+      throw new Error(data.message || "Failed to revert");
+    }
+ 
+    message.success(data.message || "Closing reverted successfully!");
+    getClosingData();
+  } catch (error) {
+    console.error("Revert error:", error);
+    message.error(error.message || "Failed to revert closing. Please try again.");
+  } finally {
+    setRevertingId(null);
+  }
+};
 
   // Handle Edit PDF Data
   const handleEditPdfData = (record) => {
@@ -276,6 +341,19 @@ const ClosingCom = ({user, selectedProgram}) => {
             onClick={() => handlePayStatus(record)}
             title={'Member Pay Status'}
           />
+             <Button
+          type="text"
+          size="small"
+          danger
+          icon={
+            revertingId === record.id
+              ? <span className="anticon anticon-loading"><span className="ant-spin-dot-item" /></span>
+              : <RollbackOutlined />
+          }
+          loading={revertingId === record.id}
+          onClick={() => handleRevertClosing(record)}
+          title="Revert Closing (Delete all payments)"
+        />
         </Space>
       ),
     },
