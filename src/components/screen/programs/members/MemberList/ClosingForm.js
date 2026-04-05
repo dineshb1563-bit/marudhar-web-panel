@@ -470,12 +470,12 @@ const ClosingForm = ({ open, onClose, memberData, user, selectedProgram, onSucce
         <Space direction="vertical" size={0} style={{ lineHeight: 1.2 }}>
           <div className="flex items-center gap-2">
             <span style={{ fontSize: '16px', fontWeight: 600 }}>
-              {isEditMode ? 'Edit Marriage Details' : 'Close Marriage Case'}
+                {isEditMode ? 'Edit Closed Member Details' : 'Close Member Case'}
             </span>
      
           </div>
           <Text type="secondary" style={{ fontSize: '12px' }}>
-            {isEditMode ? 'Update marriage completion details' : 'Record marriage completion details'}
+            {isEditMode ? 'Update member completion details' : 'Record member completion details'}
           </Text>
         </Space>
       }
@@ -528,7 +528,7 @@ const ClosingForm = ({ open, onClose, memberData, user, selectedProgram, onSucce
                     {memberData?.displayName || 'N/A'}
                   </Text>
                   <Tag color={isEditMode ? "green" : "blue"} style={{ margin: 0 }}>
-                    {isEditMode ? "Marriage Closed" : memberData?.ageGroupRange || 'N/A'}
+                    {isEditMode ? "Member Closed" : memberData?.ageGroupRange || 'N/A'}
                   </Tag>
                 </div>
                 <Paragraph type="secondary" style={{ fontSize: '12px', marginBottom: '4px' }}>
@@ -536,7 +536,7 @@ const ClosingForm = ({ open, onClose, memberData, user, selectedProgram, onSucce
                   {existingData && (
                     <span className="ml-2 text-green-600">
                       <CheckOutlined className="mr-1" />
-                      Marriage recorded on {existingData.marriage_date}
+                      Closed recorded on {existingData.marriage_date}
                     </span>
                   )}
                 </Paragraph>

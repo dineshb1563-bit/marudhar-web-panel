@@ -170,15 +170,59 @@ const AddProgramEdit = ({ program, mode = 'add', onSuccess, isDrawerOpen, setIsD
       open={isDrawerOpen}
       onClose={() => setIsDrawerOpen(false)}
       width={550}
-      destroyOnHiddene={true}
+      destroyOnHidden={true}
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <div className="space-y-4 pb-20">
           <Card title="General Details" size="small">
-            <Form.Item name="name" label="Program Name" rules={[{ required: true }]}><Input /></Form.Item>
-            <Form.Item name="hiname" label="Hindi Name" rules={[{ required: true }]}><Input /></Form.Item>
-            <Form.Item name="category" label="Category" rules={[{ required: true }]}><Radio.Group options={programCategories} /></Form.Item>
-            <Form.Item name="about" label="Description"><TextArea rows={2} /></Form.Item>
+            <Form.Item name="name" label="Program Name" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="hiname" label="Hindi Name" rules={[{ required: true }]}>
+              <Input />
+            </Form.Item>
+            <Form.Item name="category" label="Category" rules={[{ required: true }]}>
+              <Radio.Group options={programCategories} />
+            </Form.Item>
+            <Form.Item name="about" label="Description">
+              <TextArea rows={2} />
+            </Form.Item>
+          </Card>
+
+          <Card title="Member Statistics" size="small">
+            <div className="grid grid-cols-2 gap-4">
+              <Form.Item 
+                name="memberCount" 
+                label="Active Members" 
+                initialValue={0}
+                tooltip="Total active members in this program"
+              >
+                <InputNumber 
+                  className="w-full" 
+                  min={0}
+                  placeholder="0"
+                  prefix={<FiUser className="text-gray-400" />}
+                />
+              </Form.Item>
+              <Form.Item 
+                name="inactivemembercount" 
+                label="Inactive Members" 
+                initialValue={0}
+                tooltip="Total inactive members in this program"
+              >
+                <InputNumber 
+                  className="w-full" 
+                  min={0}
+                  placeholder="0"
+                  prefix={<FiUser className="text-gray-400" />}
+                />
+              </Form.Item>
+            </div>
+            <div className="mt-2 p-2 bg-gray-50 rounded-md">
+              <Text type="secondary" className="text-sm">
+                Total Members: {(form.getFieldValue('memberCount') || 0) + (form.getFieldValue('inactivemembercount') || 0)}
+              </Text>
+            </div>
           </Card>
 
           <Card title="Age & Fees" size="small">
@@ -188,14 +232,24 @@ const AddProgramEdit = ({ program, mode = 'add', onSuccess, isDrawerOpen, setIsD
                   {fields.map((field) => (
                     <Card key={field.key} type="inner" size="small" extra={<FiTrash2 className="text-red-500 cursor-pointer" onClick={() => remove(field.name)} />}>
                       <div className="grid grid-cols-2 gap-2">
-                        <Form.Item label="Start Age" name={[field.name, 'startAge']}><InputNumber className="w-full" /></Form.Item>
-                        <Form.Item label="End Age" name={[field.name, 'endAge']}><InputNumber className="w-full" /></Form.Item>
-                        <Form.Item label="Join Fee" name={[field.name, 'joinFee']}><InputNumber prefix="₹" className="w-full" /></Form.Item>
-                        <Form.Item label="Pay Amt" name={[field.name, 'payAmount']}><InputNumber prefix="₹" className="w-full" /></Form.Item>
+                        <Form.Item label="Start Age" name={[field.name, 'startAge']}>
+                          <InputNumber className="w-full" min={0} />
+                        </Form.Item>
+                        <Form.Item label="End Age" name={[field.name, 'endAge']}>
+                          <InputNumber className="w-full" min={0} />
+                        </Form.Item>
+                        <Form.Item label="Join Fee" name={[field.name, 'joinFee']}>
+                          <InputNumber prefix="₹" className="w-full" min={0} />
+                        </Form.Item>
+                        <Form.Item label="Pay Amt" name={[field.name, 'payAmount']}>
+                          <InputNumber prefix="₹" className="w-full" min={0} />
+                        </Form.Item>
                       </div>
                     </Card>
                   ))}
-                  <Button type="dashed" block onClick={() => add()} icon={<FiPlusCircle />}>Add Range</Button>
+                  <Button type="dashed" block onClick={() => add()} icon={<FiPlusCircle />}>
+                    Add Age Range
+                  </Button>
                 </div>
               )}
             </Form.List>
@@ -205,7 +259,8 @@ const AddProgramEdit = ({ program, mode = 'add', onSuccess, isDrawerOpen, setIsD
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t flex justify-end gap-2">
           <Button onClick={() => setIsDrawerOpen(false)}>Cancel</Button>
           <Button type="primary" htmlType="submit" loading={loading || updatingMembers}>
-            {mode === 'edit' ? 'Update' : 'Save'}
+            {mode === 'edit' ? <FiSave className="mr-1" /> : <FiPlusCircle className="mr-1" />}
+            {mode === 'edit' ? 'Update Program' : 'Create Program'}
           </Button>
         </div>
       </Form>
