@@ -1,552 +1,417 @@
 "use client";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { AgGridReact } from 'ag-grid-react';
-import { 
-  ClientSideRowModelModule,
-  ModuleRegistry,
-  NumberFilterModule,
-  PaginationModule,
-  RowSelectionModule,
-  TextFilterModule,
-  RowStyleModule,
-} from 'ag-grid-community';
 import { useSelector } from 'react-redux';
 import { useAuth } from '@/lib/AuthProvider';
 import { deleteData, getData, updateData } from '@/lib/services/firebaseService';
-import { 
-  Button, 
-  Space, 
-  Modal, 
-  message, 
-  App, 
-  Card, 
-  Row, 
-  Col, 
-  DatePicker,
-  Select,
-  Input,
-  Tag,
-  Popconfirm,
-  Tooltip,
-  Divider,
-  Typography,
-  Alert
+import {
+  Button, Space, Modal, App, Card, Row, Col, DatePicker, Select, Input,
+  Tag, Tooltip, Divider, Typography, Alert, Drawer, Segmented, Badge, Table,
 } from 'antd';
-import { 
-  DeleteOutlined, 
-  EyeOutlined, 
-  DownloadOutlined,
-  ReloadOutlined,
-  DollarOutlined,
-  CalendarOutlined,
-  UserOutlined,
-  CreditCardOutlined,
-  ExclamationCircleOutlined
+import {
+  DeleteOutlined, EyeOutlined, DownloadOutlined, ReloadOutlined, DollarOutlined,
+  UserOutlined, ExclamationCircleOutlined, FilePdfOutlined, SearchOutlined,
+  CalendarOutlined, FileExcelOutlined, CloseCircleOutlined, BankOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import isBetween from 'dayjs/plugin/isBetween';
-
-// Dynamically import AddPaymentModal with no SSR
+import { PDFDownloadLink, PDFViewer } from '@react-pdf/renderer';
 import dynamic from 'next/dynamic';
+import TransactionsReportPDF from '@/components/pdfcom/TransactionsReportPDF';
 
-const AddPaymentModal = dynamic(() => import('@/components/common/addPayment/AddPaymentModal'), {
-  ssr: false,
-  loading: () => <Button type="primary" loading>Add Payment</Button>
-});
+const AddPaymentModal = dynamic(
+  () => import('@/components/common/addPayment/AddPaymentModal'),
+  { ssr: false, loading: () => <Button type="primary" loading>Add Payment</Button> }
+);
 
-// Extend dayjs with isBetween plugin
 dayjs.extend(isBetween);
-
-ModuleRegistry.registerModules([
-  TextFilterModule,
-  NumberFilterModule,
-  RowSelectionModule,
-  PaginationModule,
-  ClientSideRowModelModule,
-  RowStyleModule
-]);
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
-const { Search } = Input;
 const { Text } = Typography;
 
+// ─── Quick-range presets ─────────────────────────────────────────────────────
+const QUICK_RANGES = {
+  today: { label: 'Today',      start: () => dayjs().startOf('day'),   end: () => dayjs().endOf('day') },
+  week:  { label: 'This Week',  start: () => dayjs().startOf('week'),  end: () => dayjs().endOf('week') },
+  month: { label: 'This Month', start: () => dayjs().startOf('month'), end: () => dayjs().endOf('month') },
+  custom: { label: 'Custom', start: null, end: null },
+};
+
+// ─── Firestore filter builder ────────────────────────────────────────────────
+function buildFirestoreFilters({ rangeStart, rangeEnd, paymentMethod, searchKeyword }) {
+  const filters = [
+    { field: 'active_flag', operator: '==', value: true },
+    { field: 'delete_flag', operator: '==', value: false },
+  ];
+  if (rangeStart && rangeEnd) {
+    filters.push({ field: 'paymentDate', operator: '>=', value: rangeStart.toISOString() });
+    filters.push({ field: 'paymentDate', operator: '<=', value: rangeEnd.toISOString() });
+  }
+  if (paymentMethod && paymentMethod !== 'all') {
+    filters.push({ field: 'paymentMethod', operator: '==', value: paymentMethod });
+  }
+  if (searchKeyword && searchKeyword.trim().length > 0) {
+    filters.push({ field: 'search_keywords', operator: 'array-contains', value: searchKeyword.trim().toLowerCase() });
+  }
+  return filters;
+}
+
+// ─── CSV export ──────────────────────────────────────────────────────────────
+function exportToCSV(transactions, programName) {
+  const headers = [
+    'S.No', 'TRX ID', 'Date', 'Payer Name', 'Payer Reg.No', 'Payer Father',
+    'Payer Phone', 'Beneficiary Name', 'Beneficiary Reg.No', 'Marriage Date',
+    'Amount (Rs)', 'Payment Method', 'Online Reference', 'Note',
+    'Program', 'Batch ID', 'Full Payment', 'Status', 'Created At'
+  ];
+  const rows = transactions.map((t, i) => [
+    i + 1,
+    t.transactionNumber || '',
+    t.paymentDate ? dayjs(t.paymentDate).format('DD/MM/YYYY HH:mm') : '',
+    t.payerName || '',
+    t.payerRegistrationNumber || '',
+    t.payerFatherName || '',
+    t.payerPhone || '',
+    t.marriageMemberName || '',
+    t.marriageRegistrationNumber || '',
+    t.marriageDate || '',
+    t.amount || 0,
+    t.paymentMethod || '',
+    t.onlineReference || '',
+    t.note || '',
+    t.programName || '',
+    t.batchId || '',
+    t.isFullPayment ? 'Yes' : 'No',
+    t.status || '',
+    t.createdAt ? dayjs(t.createdAt).format('DD/MM/YYYY HH:mm') : '',
+  ]);
+  const csv = [headers, ...rows]
+    .map(row => row.map(c => `"${String(c).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Transactions_${programName?.replace(/\s+/g, '_') || 'Export'}_${dayjs().format('DDMMYYYY_HHmm')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
 const TransactionsPage = () => {
   const { user } = useAuth();
-  // Get modal and message from App.useApp()
   const { message: antdMessage, modal } = App.useApp();
-  const [transactions, setTransactions] = useState([]);
-  const [loading, setLoading] = useState(false);
   const selectedProgram = useSelector((state) => state.data.selectedProgram);
-  const gridRef = useRef();
-  
-  // Store program ID in ref to ensure it's available during async operations
   const programRef = useRef(selectedProgram);
-  
-  // Filter states
-  const [dateRange, setDateRange] = useState(null);
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
-  const [searchText, setSearchText] = useState('');
-  
-  // Modal states
+
+  const [transactions, setTransactions]   = useState([]);
+  const [loading, setLoading]             = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [pdfDrawerOpen, setPdfDrawerOpen] = useState(false);
+  const [quickRange, setQuickRange]       = useState('today');
+  const [customRange, setCustomRange]     = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('all');
+  const [searchInput, setSearchInput]     = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [selectedTransaction, setSelectedTransaction] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  
-  // Summary stats
   const [summary, setSummary] = useState({
-    totalAmount: 0,
-    totalTransactions: 0
+    totalAmount: 0, totalTransactions: 0,
+    cashCount: 0, onlineCount: 0, cashAmount: 0, onlineAmount: 0
   });
+  const searchTimer = useRef(null);
 
-  // Update ref when selectedProgram changes
-  useEffect(() => {
-    programRef.current = selectedProgram;
-  }, [selectedProgram]);
+  // Derived date range
+  const { rangeStart, rangeEnd } = useMemo(() => {
+    if (quickRange !== 'custom') {
+      const p = QUICK_RANGES[quickRange];
+      return { rangeStart: p.start(), rangeEnd: p.end() };
+    }
+    if (customRange?.[0] && customRange?.[1]) {
+      return { rangeStart: customRange[0].startOf('day'), rangeEnd: customRange[1].endOf('day') };
+    }
+    return { rangeStart: null, rangeEnd: null };
+  }, [quickRange, customRange]);
 
-  // Fetch transactions
+  useEffect(() => { programRef.current = selectedProgram; }, [selectedProgram]);
+
+  const handleSearchChange = (value) => {
+    setSearchInput(value);
+    clearTimeout(searchTimer.current);
+    if (!value.trim()) { setSearchKeyword(''); return; }
+    searchTimer.current = setTimeout(() => setSearchKeyword(value.trim().toLowerCase()), 400);
+  };
+
   const fetchTransactions = useCallback(async () => {
-    if (!user) {
-      antdMessage.error('User not authenticated');
-      return;
-    }
-    
-    const currentProgram = programRef.current;
-    if (!currentProgram) {
-      // Don't show error, just clear data
+    if (!user) { antdMessage.error('User not authenticated'); return; }
+    const program = programRef.current;
+    if (!program) {
       setTransactions([]);
-      setSummary({ totalAmount: 0, totalTransactions: 0 });
+      setSummary({ totalAmount: 0, totalTransactions: 0, cashCount: 0, onlineCount: 0, cashAmount: 0, onlineAmount: 0 });
       return;
     }
-
     setLoading(true);
     try {
+      const filters = buildFirestoreFilters({ rangeStart, rangeEnd, paymentMethod, searchKeyword });
       const data = await getData(
-        `/users/${user.uid}/programs/${currentProgram.id}/transactions`,
-        [
-          { field: 'active_flag', operator: '==', value: true },
-          { field: 'delete_flag', operator: '==', value: false }
-        ],
-        { field: 'createdAt', direction: 'desc' }
+        `/users/${user.uid}/programs/${program.id}/transactions`,
+        filters,
+        { field: 'paymentDate', direction: 'desc' }
       );
-      
       setTransactions(data);
-      calculateSummary(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      antdMessage.error('Failed to load transactions');
-    } finally {
-      setLoading(false);
-    }
-  }, [user, antdMessage]);
+      const totalAmount  = data.reduce((s, t) => s + (t.amount || 0), 0);
+      const cashTxns     = data.filter(t => t.paymentMethod === 'cash');
+      const onlineTxns   = data.filter(t => t.paymentMethod !== 'cash');
+      const cashAmount   = cashTxns.reduce((s, t) => s + (t.amount || 0), 0);
+      const onlineAmount = onlineTxns.reduce((s, t) => s + (t.amount || 0), 0);
+      setSummary({
+        totalAmount, totalTransactions: data.length,
+        cashCount: cashTxns.length, onlineCount: onlineTxns.length, cashAmount, onlineAmount
+      });
+    } catch (err) {
+      console.error(err);
+      antdMessage.error('Failed to load transactions. ' + (err?.message || ''));
+    } finally { setLoading(false); }
+  }, [user, antdMessage, rangeStart, rangeEnd, paymentMethod, searchKeyword]);
 
-  // Calculate summary statistics
-  const calculateSummary = (data) => {
-    const totalAmount = data.reduce((sum, t) => sum + (t.amount || 0), 0);
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions, selectedProgram]);
 
-    setSummary({
-      totalAmount,
-      totalTransactions: data.length
-    });
-  };
-
-  // Show delete confirmation modal using modal from App.useApp()
-  const showDeleteConfirm = (transaction) => {
-    // Check if program exists before showing modal
-    const currentProgram = programRef.current;
-    if (!currentProgram) {
-      antdMessage.error('No program selected. Please select a program first.');
-      return;
-    }
-
-    modal.confirm({
-      title: 'Delete Transaction',
-      icon: <ExclamationCircleOutlined className="text-red-500" />,
-      content: (
-        <div className="space-y-3">
-          <Alert
-            message="Warning"
-            description="This action cannot be undone. The transaction will be permanently deleted."
-            type="warning"
-            showIcon
-            className="mb-3"
-          />
-          <div className="bg-gray-50 p-3 rounded-lg">
-            <div className="text-sm font-medium mb-2">Transaction Details:</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Transaction ID:</span>
-                <span className="font-mono font-medium">{transaction.transactionNumber}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Amount:</span>
-                <span className="font-bold text-green-600">₹{transaction.amount?.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Payer:</span>
-                <span>{transaction.payerName || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Beneficiary:</span>
-                <span>{transaction.marriageMemberName || '-'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Date:</span>
-                <span>{transaction.paymentDate ? dayjs(transaction.paymentDate).format('DD/MM/YYYY') : '-'}</span>
-              </div>
-            </div>
-          </div>
-          {transaction.paymentPendingId && (
-            <Alert
-              message="Pending Payment Impact"
-              description="This transaction is linked to a pending payment. Deleting it will revert the pending payment status to 'pending'."
-              type="info"
-              showIcon
-            />
-          )}
-        </div>
-      ),
-      okText: 'Yes, Delete',
-      okType: 'danger',
-      cancelText: 'No, Cancel',
-      okButtonProps: { 
-        loading: deleteLoading,
-        className: 'bg-red-500 hover:bg-red-600'
-      },
-      onOk: async () => {
-        await handleDelete(transaction);
-      },
-      onCancel() {
-        console.log('Delete cancelled');
-      },
-    });
-  };
-
-  // Delete transaction
   const handleDelete = async (transaction) => {
-    // Check authentication
-    if (!user) {
-      antdMessage.error('User not authenticated');
-      return;
-    }
-
-    // Get current program from ref (ensures we have latest value)
-    const currentProgram = programRef.current;
-    if (!currentProgram) {
-      antdMessage.error('No program selected. Please select a program first.');
-      return;
-    }
-
+    if (!user) { antdMessage.error('User not authenticated'); return; }
+    const program = programRef.current;
+    if (!program) { antdMessage.error('No program selected.'); return; }
     setDeleteLoading(true);
-    
     try {
-      console.log('Deleting transaction:', transaction.id, 'from program:', currentProgram.id);
-      
-      // Delete the transaction
-      await deleteData(
-        `/users/${user.uid}/programs/${currentProgram.id}/transactions`,
-        transaction.id
-      );
-
-      // Reverse update pending payment entry if exists
+      await deleteData(`/users/${user.uid}/programs/${program.id}/transactions`, transaction.id);
       if (transaction.paymentPendingId) {
         try {
           await updateData(
-            `/users/${user.uid}/programs/${currentProgram.id}/payment_pending`,
+            `/users/${user.uid}/programs/${program.id}/payment_pending`,
             transaction.paymentPendingId,
             {
-              status: 'pending',
-              transactionId: null,
-              paymentDate: null,
-              paidAmount: null,
-              paymentMethod: null,
-              onlineReference: null,
-              updatedAt: dayjs().toISOString(),
-              lastDeletedTransactionId: transaction.id,
-              lastDeletedAt: dayjs().toISOString()
+              status: 'pending', transactionId: null, paymentDate: null, paidAmount: null,
+              paymentMethod: null, onlineReference: null, updatedAt: dayjs().toISOString(),
+              lastDeletedTransactionId: transaction.id, lastDeletedAt: dayjs().toISOString(),
             }
           );
-          
-          antdMessage.success({
-            content: 'Transaction deleted and pending payment status restored',
-            duration: 3
-          });
-        } catch (pendingError) {
-          console.error('Error updating pending payment:', pendingError);
-          antdMessage.warning('Transaction deleted but failed to update pending payment status');
-        }
+          antdMessage.success('Transaction deleted and pending payment restored');
+        } catch { antdMessage.warning('Transaction deleted but failed to update pending payment'); }
       } else {
         antdMessage.success('Transaction deleted successfully');
       }
-
-      // Update local state immediately for better UX
       setTransactions(prev => prev.filter(t => t.id !== transaction.id));
-      
-      // Refresh data from server to ensure consistency
-      await fetchTransactions();
-      
-      // Close view modal if open
       setViewModalVisible(false);
-      
-    } catch (error) {
-      console.error('Error deleting transaction:', error);
-      antdMessage.error(`Failed to delete transaction: ${error.message || 'Unknown error'}`);
-    } finally {
-      setDeleteLoading(false);
-    }
+      fetchTransactions();
+    } catch (err) {
+      antdMessage.error(`Failed to delete: ${err.message || 'Unknown error'}`);
+    } finally { setDeleteLoading(false); }
   };
 
-  // View transaction details
-  const handleView = (transaction) => {
-    setSelectedTransaction(transaction);
-    setViewModalVisible(true);
+  const showDeleteConfirm = (transaction) => {
+    if (!programRef.current) { antdMessage.error('No program selected.'); return; }
+    modal.confirm({
+      title: 'Delete Transaction',
+      icon: <ExclamationCircleOutlined style={{ color: '#ff4d4f' }} />,
+      content: (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <Alert message="This action cannot be undone." type="warning" showIcon />
+          <div style={{ background: '#fafafa', borderRadius: 8, padding: '10px 14px' }}>
+            {[
+              ['TRX ID',      <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{transaction.transactionNumber}</span>],
+              ['Amount',      <span style={{ color: '#52c41a', fontWeight: 700 }}>₹{transaction.amount?.toLocaleString('en-IN')}</span>],
+              ['Payer',       transaction.payerName || '-'],
+              ['Beneficiary', transaction.marriageMemberName || '-'],
+              ['Date',        transaction.paymentDate ? dayjs(transaction.paymentDate).format('DD/MM/YYYY') : '-'],
+            ].map(([lbl, val]) => (
+              <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                <span style={{ color: '#8c8c8c' }}>{lbl}</span>
+                <span>{val}</span>
+              </div>
+            ))}
+          </div>
+          {transaction.paymentPendingId && (
+            <Alert message="Linked pending payment will be reverted to 'pending'." type="info" showIcon />
+          )}
+        </div>
+      ),
+      okText: 'Delete', okType: 'danger', cancelText: 'Cancel',
+      okButtonProps: { loading: deleteLoading },
+      onOk: () => handleDelete(transaction),
+    });
   };
 
-  // Filter transactions
-  const filteredTransactions = useMemo(() => {
-    if (!transactions.length) return [];
-    
-    return transactions.filter(transaction => {
-      // Date filter
-      if (dateRange && dateRange[0] && dateRange[1]) {
-        const transactionDate = dayjs(transaction.paymentDate);
-        const startDate = dateRange[0];
-        const endDate = dateRange[1];
-        
-        if (!transactionDate || !startDate || !endDate) {
-          return false;
-        }
-        
-        const isWithinRange = transactionDate.isBetween(startDate, endDate, 'day', '[]');
-        if (!isWithinRange) {
-          return false;
-        }
-      }
+  const handleView = (t) => { setSelectedTransaction(t); setViewModalVisible(true); };
 
-      // Payment method filter
-      if (paymentMethodFilter !== 'all' && transaction.paymentMethod !== paymentMethodFilter) {
-        return false;
-      }
+  const getFileName = useCallback(() => {
+    const p = selectedProgram?.name?.replace(/\s+/g, '_') || 'Program';
+    return `${p}_Transactions_${transactions.length}_${dayjs().format('DDMMYYYY')}.pdf`;
+  }, [selectedProgram, transactions.length]);
 
-      // Search filter
-      if (searchText) {
-        const searchLower = searchText.toLowerCase();
-        const searchFields = [
-          transaction.payerName,
-          transaction.marriageMemberName,
-          transaction.transactionNumber,
-          transaction.onlineReference,
-          transaction.payerRegistrationNumber,
-          transaction.marriageRegistrationNumber
-        ];
+  const resetFilters = () => {
+    setQuickRange('today'); setCustomRange(null);
+    setPaymentMethod('all'); setSearchInput(''); setSearchKeyword('');
+  };
+  const hasActiveFilters = quickRange !== 'today' || paymentMethod !== 'all' || searchKeyword !== '';
 
-        return searchFields.some(field => 
-          field && field.toString().toLowerCase().includes(searchLower)
-        );
-      }
+  const onExportCSV = useCallback(() => {
+    if (!transactions.length) { antdMessage.warning('No data to export'); return; }
+    exportToCSV(transactions, selectedProgram?.name);
+    antdMessage.success(`Exported ${transactions.length} transactions`);
+  }, [transactions, selectedProgram, antdMessage]);
 
-      return true;
-    });
-  }, [transactions, dateRange, paymentMethodFilter, searchText]);
-
-  // Export to CSV
-  const onExport = useCallback(() => {
-    if (!filteredTransactions.length) {
-      antdMessage.warning('No data to export');
-      return;
-    }
-    gridRef.current?.api.exportDataAsCsv({
-      fileName: `transactions_${selectedProgram?.name || 'all'}_${dayjs().format('YYYY-MM-DD')}.csv`,
-    });
-  }, [filteredTransactions, selectedProgram, antdMessage]);
-
-  // Column Definitions
-  const columnDefs = useMemo(() => [
+  // ── Antd Table columns ────────────────────────────────────────────────────
+  const columns = useMemo(() => [
     {
-      headerName: 'TRX ID',
-      field: 'transactionNumber',
-      width: 140,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      cellStyle: { fontWeight: '500', fontSize: '12px' },
-      cellRenderer: (params) => (
-        <Button 
-          type="link" 
-          onClick={() => handleView(params.data)}
-          className="p-0 text-xs text-blue-600 hover:text-blue-800"
+      title: '#',
+      key: 'index',
+      width: 52,
+      align: 'center',
+      render: (_, __, index) => (
+        <Text type="secondary" style={{ fontSize: 12 }}>{index + 1}</Text>
+      ),
+    },
+    {
+      title: 'TRX ID',
+      dataIndex: 'transactionNumber',
+      key: 'transactionNumber',
+      width: 180,
+      render: (val, record) => (
+        <Button
+          type="link"
+          style={{ padding: 0, fontSize: 11, fontFamily: 'monospace', fontWeight: 600, height: 'auto' }}
+          onClick={() => handleView(record)}
         >
-          {params.value}
+          {val}
         </Button>
-      )
+      ),
     },
     {
-      headerName: 'Date',
-      field: 'paymentDate',
-      width: 100,
-      sortable: true,
-      valueFormatter: (params) => params.value ? dayjs(params.value).format('DD/MM/YY') : '-',
-      comparator: (dateA, dateB) => {
-        const a = dayjs(dateA).unix();
-        const b = dayjs(dateB).unix();
-        return a - b;
-      },
-      cellStyle: { fontSize: '12px' }
-    },
-    {
-      headerName: 'Payer',
-      field: 'payerName',
-      width: 140,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      cellRenderer: (params) => (
-        <div className="text-xs">
-          <div className="font-medium truncate">{params.data.payerName || '-'}</div>
-          <div className="text-gray-500 truncate">
-            {params.data.payerRegistrationNumber || '-'}
-          </div>
-        </div>
-      )
-    },
-    {
-      headerName: 'Beneficiary',
-      field: 'marriageMemberName',
-      width: 140,
-      sortable: true,
-      filter: 'agTextColumnFilter',
-      cellRenderer: (params) => (
-        <div className="text-xs">
-          <div className="font-medium truncate">{params.data.marriageMemberName || '-'}</div>
-          <div className="text-gray-500 truncate">
-            {params.data.marriageRegistrationNumber || '-'}
-          </div>
-        </div>
-      )
-    },
-    {
-      headerName: 'Amount',
-      field: 'amount',
-      width: 100,
-      sortable: true,
-      type: 'rightAligned',
-      cellStyle: { 
-        fontWeight: 'bold',
-        fontSize: '12px',
-        color: '#52c41a'
-      },
-      valueFormatter: (params) => `₹${params.value?.toLocaleString('en-IN') || '0'}`,
-      cellClass: 'text-right'
-    },
-    {
-      headerName: 'Method',
-      field: 'paymentMethod',
+      title: 'Date',
+      dataIndex: 'paymentDate',
+      key: 'paymentDate',
       width: 90,
-      sortable: true,
-      filter: 'agSetColumnFilter',
-      cellRenderer: (params) => {
-        const method = params.value;
-        const color = method === 'cash' ? 'green' : 'blue';
-        return (
-          <Tag 
-            color={color}
-            className="capitalize text-xs"
-          >
-            {method === 'cash' ? 'Cash' : 'Online'}
-          </Tag>
-        );
-      }
+      sorter: (a, b) => dayjs(a.paymentDate).unix() - dayjs(b.paymentDate).unix(),
+      render: (val) => (
+        <Text style={{ fontSize: 12 }}>{val ? dayjs(val).format('DD/MM/YY') : '-'}</Text>
+      ),
     },
     {
-      headerName: 'Reference',
-      field: 'onlineReference',
-      width: 140,
-      cellRenderer: (params) => {
-        if (!params.value) return '-';
+      title: 'Payer',
+      dataIndex: 'payerName',
+      key: 'payerName',
+      width: 155,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#262626', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>
+            {record.payerName || '-'}
+          </div>
+          <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
+            {record.payerRegistrationNumber || ''}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Beneficiary',
+      dataIndex: 'marriageMemberName',
+      key: 'marriageMemberName',
+      width: 155,
+      render: (_, record) => (
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: '#262626', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 140 }}>
+            {record.marriageMemberName || '-'}
+          </div>
+          <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace' }}>
+            {record.marriageRegistrationNumber || ''}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      width: 115,
+      align: 'right',
+      sorter: (a, b) => (a.amount || 0) - (b.amount || 0),
+      render: (val) => (
+        <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a', fontVariantNumeric: 'tabular-nums' }}>
+          ₹{val?.toLocaleString('en-IN') || '0'}
+        </span>
+      ),
+    },
+    {
+      title: 'Method',
+      dataIndex: 'paymentMethod',
+      key: 'paymentMethod',
+      width: 90,
+      align: 'center',
+      filters: [
+        { text: 'Cash', value: 'cash' },
+        { text: 'Online', value: 'online' },
+      ],
+      onFilter: (value, record) => record.paymentMethod === value,
+      render: (val) => (
+        <Tag
+          color={val === 'cash' ? 'success' : 'blue'}
+          style={{ borderRadius: 12, fontWeight: 600, fontSize: 11, padding: '1px 8px', margin: 0 }}
+        >
+          {val === 'cash' ? 'Cash' : 'Online'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'Reference',
+      dataIndex: 'onlineReference',
+      key: 'onlineReference',
+      width: 135,
+      render: (val) => {
+        if (!val) return <Text type="secondary" style={{ fontSize: 12 }}>—</Text>;
         return (
-          <Tooltip title={params.value}>
-            <div className="text-xs font-mono truncate">
-              {params.value.length > 15 ? `${params.value.substring(0, 12)}...` : params.value}
-            </div>
+          <Tooltip title={val}>
+            <Text style={{ fontSize: 11, fontFamily: 'monospace', color: '#595959' }}>
+              {val.length > 15 ? val.substring(0, 13) + '…' : val}
+            </Text>
           </Tooltip>
         );
-      }
+      },
     },
     {
-      headerName: 'Actions',
-      field: 'actions',
+      title: 'Actions',
+      key: 'actions',
       width: 80,
-      sortable: false,
-      filter: false,
-      cellRenderer: (params) => (
-        <Space size="small">
+      align: 'center',
+      fixed: 'right',
+      render: (_, record) => (
+        <Space size={4}>
           <Tooltip title="View Details">
             <Button
-              type="text"
-              icon={<EyeOutlined className="text-xs" />}
-              onClick={() => handleView(params.data)}
-              size="small"
-              className="text-blue-500 hover:text-blue-700 p-1"
+              type="text" size="small" icon={<EyeOutlined />}
+              onClick={() => handleView(record)}
+              style={{ color: '#2563eb' }}
             />
           </Tooltip>
-          <Tooltip title="Delete Transaction">
+          <Tooltip title="Delete">
             <Button
-              type="text"
-              danger
-              icon={<DeleteOutlined className="text-xs" />}
-              onClick={() => {
-                // Check if program exists before showing delete confirm
-                if (!programRef.current) {
-                  antdMessage.error('No program selected. Please select a program first.');
-                  return;
-                }
-                showDeleteConfirm(params.data);
-              }}
-              size="small"
-              className="p-1"
+              type="text" size="small" danger icon={<DeleteOutlined />}
+              onClick={() => showDeleteConfirm(record)}
             />
           </Tooltip>
         </Space>
-      )
-    }
-  ], [antdMessage]);
-
-  // Default column definition
-  const defaultColDef = useMemo(() => ({
-    sortable: true,
-    filter: true,
-    resizable: true,
-    flex: 1,
-    minWidth: 80,
-    cellStyle: { 
-      display: 'flex',
-      alignItems: 'center',
-      padding: '4px 2px'
+      ),
     },
-    headerClass: 'bg-gray-50 font-semibold text-xs',
-  }), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], []);
 
-  // Fetch on program change
-  useEffect(() => {
-    fetchTransactions();
-  }, [selectedProgram, fetchTransactions]);
-
-  // Reset filters
-  const resetFilters = () => {
-    setDateRange(null);
-    setPaymentMethodFilter('all');
-    setSearchText('');
-  };
-
-  // Handle no program selected
+  // ── No program guard ──────────────────────────────────────────────────────
   if (!selectedProgram) {
     return (
-      <div className="p-4">
+      <div style={{ padding: 24 }}>
         <Card>
-          <div className="flex flex-col items-center justify-center h-64">
-            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
-              <DollarOutlined className="text-2xl text-blue-500" />
-            </div>
-            <Text type="secondary" className="text-lg mb-2">No Program Selected</Text>
-            <Text type="secondary" className="text-sm text-center max-w-md">
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: 240, gap: 12 }}>
+            <DollarOutlined style={{ fontSize: 40, color: '#bfbfbf' }} />
+            <Text type="secondary" style={{ fontSize: 16, fontWeight: 600 }}>No Program Selected</Text>
+            <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', maxWidth: 360 }}>
               Please select a program from the dropdown above to view and manage transactions.
             </Text>
           </div>
@@ -555,263 +420,394 @@ const TransactionsPage = () => {
     );
   }
 
-  return (
-    <div className="p-2">
-      {/* Compact Header */}
-      <div className="mb-4">
-        <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-800">Transactions</h2>
-            <Text type="secondary" className="text-xs">
-              Program: {selectedProgram.name}
-            </Text>
-          </div>
-          <Space>
-            <Text className="text-sm text-gray-600">
-              Total: <span className="font-semibold">{summary.totalTransactions}</span> | 
-              Amount: <span className="font-semibold text-green-600">₹{summary.totalAmount?.toLocaleString('en-IN')}</span>
-            </Text>
-          </Space>
-        </div>
-      </div>
+  const pdfProps = {
+    transactions,
+    summary,
+    programInfo: selectedProgram,
+    filters: {
+      dateRange: rangeStart ? { start: rangeStart.format('DD/MM/YYYY'), end: rangeEnd.format('DD/MM/YYYY') } : null,
+      paymentMethod,
+      searchText: searchKeyword,
+    },
+    generatedDate: dayjs().format('DD/MM/YYYY HH:mm:ss'),
+  };
 
-      {/* Compact Filters Bar */}
-      <Card size="small" className="mb-3 shadow-sm">
-        <Row gutter={[8, 8]} align="middle">
-          <Col flex="auto">
-            <Space wrap>
-              <AddPaymentModal onSuccess={fetchTransactions} />
-              <Button 
-                icon={<ReloadOutlined />} 
-                onClick={fetchTransactions}
-                loading={loading}
-                size="small"
-              >
-                Refresh
-              </Button>
-              {/* <Button 
-                icon={<DownloadOutlined />} 
-                onClick={onExport}
-                disabled={!filteredTransactions.length}
-                size="small"
-              >
-                Export
-              </Button> */}
-            </Space>
+  return (
+    <div style={{ padding: '12px 16px' }}>
+
+      {/* ── Summary Cards ────────────────────────────────────────────────────── */}
+      <Row gutter={[12, 12]} style={{ marginBottom: 14 }}>
+        {[
+          { label: 'Total Amount',  value: `₹${summary.totalAmount?.toLocaleString('en-IN')}`, sub: `${summary.totalTransactions} transactions`, color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0', icon: <DollarOutlined /> },
+          { label: 'Cash',         value: `₹${summary.cashAmount?.toLocaleString('en-IN')}`,   sub: `${summary.cashCount} transactions`,         color: '#d97706', bg: '#fffbeb', border: '#fde68a', icon: <BankOutlined /> },
+          { label: 'Online',       value: `₹${summary.onlineAmount?.toLocaleString('en-IN')}`, sub: `${summary.onlineCount} transactions`,        color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe', icon: <BankOutlined /> },
+        ].map(({ label, value, sub, color, bg, border, icon }) => (
+          <Col key={label} flex="1" style={{ minWidth: 180 }}>
+            <Card
+              size="small"
+              style={{ background: bg, border: `1px solid ${border}`, borderRadius: 10 }}
+              styles={{ body: { padding: '12px 16px' } }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 8,
+                  background: `${color}18`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color, fontSize: 18, flexShrink: 0,
+                }}>
+                  {icon}
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: '#8c8c8c', fontWeight: 500, marginBottom: 1 }}>{label}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
+                  <div style={{ fontSize: 10, color: '#aaa', marginTop: 1 }}>{sub}</div>
+                </div>
+              </div>
+            </Card>
           </Col>
-          <Col>
-            <Space wrap>
-              <RangePicker
-                size="small"
-                placeholder={['From', 'To']}
-                format="DD/MM/YY"
-                value={dateRange}
-                onChange={setDateRange}
-                allowClear
-                className="w-48"
-              />
-              <Select
-                size="small"
-                placeholder="Payment Method"
-                value={paymentMethodFilter}
-                onChange={setPaymentMethodFilter}
-                className="w-32"
-              >
-                <Option value="all">All</Option>
-                <Option value="cash">Cash</Option>
-                <Option value="online">Online</Option>
-              </Select>
-              <Search
-                size="small"
-                placeholder="Search..."
-                allowClear
-                value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
-                className="w-40"
-              />
-              <Button 
-                size="small" 
-                onClick={resetFilters}
-                disabled={!dateRange && paymentMethodFilter === 'all' && !searchText}
-              >
-                Clear
-              </Button>
-            </Space>
-          </Col>
-        </Row>
+        ))}
+      </Row>
+
+      {/* ── Filter Bar ───────────────────────────────────────────────────────── */}
+      <Card
+        size="small"
+        style={{ marginBottom: 12, borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+        styles={{ body: { padding: '10px 14px' } }}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          {/* <AddPaymentModal onSuccess={fetchTransactions} /> */}
+      
+
+         
+
+          {/* Quick range tabs */}
+          <Segmented
+            size="small"
+            value={quickRange}
+            onChange={(val) => { setQuickRange(val); if (val !== 'custom') setCustomRange(null); }}
+            options={[
+              { label: 'Today',  value: 'today' },
+              { label: 'Week',   value: 'week' },
+              { label: 'Month',  value: 'month' },
+              { label: 'Custom', value: 'custom' },
+            ]}
+          />
+
+          {quickRange === 'custom' && (
+            <RangePicker
+              size="small"
+              placeholder={['From', 'To']}
+              format="DD/MM/YY"
+              value={customRange}
+              onChange={setCustomRange}
+              allowClear
+            />
+          )}
+
+          <Divider type="vertical" />
+
+          <Select size="small" value={paymentMethod} onChange={setPaymentMethod} style={{ width: 120 }}>
+            <Option value="all">All Methods</Option>
+            <Option value="cash">Cash</Option>
+            <Option value="online">Online</Option>
+          </Select>
+
+          <Input
+            size="small"
+            prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+            placeholder="Name, reg. no, TRX ID…"
+            allowClear
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            style={{ width: 210 }}
+          />
+
+          {hasActiveFilters && (
+            <Button size="small" icon={<CloseCircleOutlined />} onClick={resetFilters} danger>
+              Clear
+            </Button>
+          )}
+
+          {/* Exports — right aligned */}
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
+            <Button
+              size="small"
+              icon={<FileExcelOutlined style={{ color: '#16a34a' }} />}
+              onClick={onExportCSV}
+              disabled={!transactions.length}
+            >
+              CSV
+            </Button>
+            <Button
+              size="small" type="primary" danger icon={<FilePdfOutlined />}
+              onClick={() => { if (!transactions.length) { antdMessage.warning('No data'); return; } setPdfDrawerOpen(true); }}
+              disabled={!transactions.length}
+            >
+              PDF
+            </Button>
+                <Button icon={<ReloadOutlined />} onClick={fetchTransactions} loading={loading} size="small">
+            Refresh
+          </Button>
+          </div>
+        </div>
+
+        {/* Active filter pills */}
+        {(rangeStart || searchKeyword || paymentMethod !== 'all') && (
+          <div style={{ display: 'flex', gap: 6, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>Active filters:</Text>
+            {rangeStart && rangeEnd && (
+              <Tag icon={<CalendarOutlined />} color="blue" style={{ borderRadius: 12, fontSize: 11 }}>
+                {rangeStart.format('DD/MM/YY')} – {rangeEnd.format('DD/MM/YY')}
+              </Tag>
+            )}
+            {paymentMethod !== 'all' && (
+              <Tag color={paymentMethod === 'cash' ? 'success' : 'blue'} style={{ borderRadius: 12, fontSize: 11 }}>
+                {paymentMethod === 'cash' ? 'Cash' : 'Online'}
+              </Tag>
+            )}
+            {searchKeyword && (
+              <Tag icon={<SearchOutlined />} color="orange" style={{ borderRadius: 12, fontSize: 11 }}>
+                "{searchKeyword}"
+              </Tag>
+            )}
+            {loading && <Badge status="processing" text={<Text type="secondary" style={{ fontSize: 11 }}>Fetching…</Text>} />}
+          </div>
+        )}
       </Card>
 
-      {/* Main Table */}
-      <div className="ag-theme-alpine" style={{ height: 'calc(100vh - 200px)', width: '100%' }}>
-        <AgGridReact
-          ref={gridRef}
-          rowData={filteredTransactions}
-          columnDefs={columnDefs}
-          defaultColDef={defaultColDef}
-          animateRows={true}
-          pagination={true}
-          paginationPageSize={50}
-          paginationPageSizeSelector={[20, 50, 100]}
-          rowSelection="single"
-          suppressRowClickSelection={true}
-          loading={loading}
-          overlayNoRowsTemplate={loading ? 'Loading transactions...' : 'No transactions found'}
-          onGridReady={(params) => {
-            params.api.sizeColumnsToFit();
-          }}
-          onFirstDataRendered={(params) => params.api.sizeColumnsToFit()}
-          getRowId={(params) => params.data.id}
-          rowHeight={45}
-          headerHeight={35}
-        />
-      </div>
+      {/* ── Table Card ───────────────────────────────────────────────────────── */}
+      <Card
+        size="small"
+        style={{ borderRadius: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}
+        styles={{ body: { padding: 0 } }}
+      >
+        {/* Table title row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px 8px' }}>
+          <Text style={{ fontWeight: 700, fontSize: 13 }}>Transaction List</Text>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            {summary.totalTransactions} records &nbsp;·&nbsp;
+            <span style={{ fontWeight: 700, color: '#16a34a' }}>
+              ₹{summary.totalAmount?.toLocaleString('en-IN')}
+            </span>
+          </Text>
+        </div>
 
-      {/* Compact View Modal */}
+        <Table
+          columns={columns}
+          dataSource={transactions}
+          rowKey="id"
+          loading={loading}
+          size="small"
+          scroll={{ x: 1060, y: 'calc(100vh - 390px)' }}
+          pagination={{
+            pageSize: 50,
+            showSizeChanger: true,
+            pageSizeOptions: [20, 50, 100, 200],
+            showTotal: (total, range) => `${range[0]}–${range[1]} of ${total} records`,
+            size: 'small',
+            style: { padding: '8px 16px', margin: 0, borderTop: '1px solid #f0f0f0' },
+          }}
+          rowClassName={(_, index) => index % 2 === 1 ? 'trx-striped-row' : ''}
+          locale={{
+            emptyText: (
+              <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                <div style={{ fontSize: 36, marginBottom: 10 }}>📭</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: '#8c8c8c', marginBottom: 4 }}>
+                  No transactions found
+                </div>
+                <div style={{ fontSize: 12, color: '#bfbfbf' }}>
+                  Try adjusting your date range or filters
+                </div>
+              </div>
+            ),
+          }}
+          summary={() => (
+            <Table.Summary fixed="bottom">
+              <Table.Summary.Row style={{ background: '#f6f9ff' }}>
+                <Table.Summary.Cell index={0} colSpan={5} align="right">
+                  <Text strong style={{ fontSize: 12, color: '#595959' }}>Total (all records)</Text>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={5} align="right">
+                  <Text strong style={{ color: '#16a34a', fontSize: 13 }}>
+                    ₹{summary.totalAmount?.toLocaleString('en-IN')}
+                  </Text>
+                </Table.Summary.Cell>
+                <Table.Summary.Cell index={6} colSpan={3} />
+              </Table.Summary.Row>
+            </Table.Summary>
+          )}
+        />
+      </Card>
+
+      {/* ── View Modal ───────────────────────────────────────────────────────── */}
       <Modal
-        title={
-          <div className="flex items-center gap-2">
-            <DollarOutlined className="text-green-500" />
-            <span className="text-sm">Transaction Details</span>
-          </div>
-        }
         open={viewModalVisible}
         onCancel={() => setViewModalVisible(false)}
         footer={null}
-        width={600}
+        width={580}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <DollarOutlined style={{ color: '#16a34a' }} />
+            <span>Transaction Details</span>
+          </div>
+        }
       >
         {selectedTransaction && (
-          <div className="space-y-4">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-blue-50 to-green-50 p-4 rounded-lg">
-              <div className="flex justify-between items-center">
-                <div>
-                  <div className="text-2xl font-bold text-green-600">
-                    ₹{selectedTransaction.amount?.toLocaleString('en-IN')}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {selectedTransaction.transactionNumber}
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, paddingTop: 4 }}>
+
+            {/* Hero */}
+            <div style={{
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #eff6ff 100%)',
+              borderRadius: 10, padding: '16px 20px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              border: '1px solid #e0e7ff',
+            }}>
+              <div>
+                <div style={{ fontSize: 28, fontWeight: 800, color: '#16a34a' }}>
+                  ₹{selectedTransaction.amount?.toLocaleString('en-IN')}
                 </div>
-                <div className="text-right">
-                  <div className="flex items-center gap-2">
-                    <Tag color={selectedTransaction.paymentMethod === 'cash' ? 'green' : 'blue'}>
-                      {selectedTransaction.paymentMethod === 'cash' ? 'Cash' : 'Online'}
-                    </Tag>
-                    <Tag color="success">Completed</Tag>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {dayjs(selectedTransaction.paymentDate).format('DD MMM YYYY, h:mm A')}
-                  </div>
+                <div style={{ fontSize: 11, color: '#8c8c8c', fontFamily: 'monospace', marginTop: 2 }}>
+                  {selectedTransaction.transactionNumber}
                 </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+                <Space>
+                  <Tag color={selectedTransaction.paymentMethod === 'cash' ? 'success' : 'blue'} style={{ borderRadius: 12, fontWeight: 600, margin: 0 }}>
+                    {selectedTransaction.paymentMethod === 'cash' ? 'Cash' : 'Online'}
+                  </Tag>
+                  <Tag color="green" style={{ borderRadius: 12, margin: 0 }}>Completed</Tag>
+                </Space>
+                <Text type="secondary" style={{ fontSize: 11 }}>
+                  {dayjs(selectedTransaction.paymentDate).format('DD MMM YYYY, h:mm A')}
+                </Text>
               </div>
             </div>
 
-            <Divider className="my-2" />
+            <Divider style={{ margin: 0 }} />
 
-            {/* Two Column Details */}
-            <Row gutter={16}>
-              <Col span={12}>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                    <UserOutlined className="text-xs" /> Payer Details
-                  </div>
-                  <div className="space-y-1">
-                    <div>
-                      <span className="text-xs text-gray-500">Name:</span>
-                      <div className="font-medium">{selectedTransaction.payerName || '-'}</div>
+            {/* Payer & Beneficiary */}
+            <Row gutter={12}>
+              {[
+                {
+                  title: 'Payer Details',
+                  fields: [
+                    ['Name',   selectedTransaction.payerName],
+                    ['Father', selectedTransaction.payerFatherName],
+                    ['Reg. No', selectedTransaction.payerRegistrationNumber],
+                    ['Phone',  selectedTransaction.payerPhone],
+                  ]
+                },
+                {
+                  title: 'Beneficiary Details',
+                  fields: [
+                    ['Name',    selectedTransaction.marriageMemberName],
+                    ['Father',  selectedTransaction.closingMemberFatherName],
+                    ['Reg. No', selectedTransaction.marriageRegistrationNumber],
+                    ['Marriage Date', selectedTransaction.marriageDate],
+                  ]
+                }
+              ].map(({ title, fields }) => (
+                <Col span={12} key={title}>
+                  <div style={{ background: '#fafafa', borderRadius: 8, padding: '12px 14px', border: '1px solid #f0f0f0', height: '100%' }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: '#262626', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <UserOutlined style={{ fontSize: 11, color: '#8c8c8c' }} /> {title}
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Registration:</span>
-                      <div className="text-sm">{selectedTransaction.payerRegistrationNumber || '-'}</div>
-                    </div>
-                    {selectedTransaction.payerPhone && (
-                      <div>
-                        <span className="text-xs text-gray-500">Phone:</span>
-                        <div className="text-sm">{selectedTransaction.payerPhone}</div>
+                    {fields.filter(([, v]) => v).map(([lbl, val]) => (
+                      <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 12, borderBottom: '1px solid #f5f5f5' }}>
+                        <Text type="secondary" style={{ fontSize: 11 }}>{lbl}</Text>
+                        <Text strong style={{ fontSize: 12, textAlign: 'right', maxWidth: '60%' }}>{val}</Text>
                       </div>
-                    )}
+                    ))}
                   </div>
-                </div>
-              </Col>
-              <Col span={12}>
-                <div className="bg-gray-50 p-3 rounded-lg">
-                  <div className="font-semibold text-gray-600 mb-2 flex items-center gap-1">
-                    <UserOutlined className="text-xs" /> Beneficiary Details
-                  </div>
-                  <div className="space-y-1">
-                    <div>
-                      <span className="text-xs text-gray-500">Name:</span>
-                      <div className="font-medium">{selectedTransaction.marriageMemberName || '-'}</div>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">Registration:</span>
-                      <div className="text-sm">{selectedTransaction.marriageRegistrationNumber || '-'}</div>
-                    </div>
-                    {selectedTransaction.marriageDate && (
-                      <div>
-                        <span className="text-xs text-gray-500">Marriage Date:</span>
-                        <div className="text-sm">{dayjs(selectedTransaction.marriageDate).format('DD MMM YYYY')}</div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </Col>
+                </Col>
+              ))}
             </Row>
 
-            <Divider className="my-2" />
-
-            {/* Additional Info */}
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <div className="font-semibold text-gray-600 mb-2">Additional Information</div>
-              <div className="space-y-2">
-                <div className="flex">
-                  <span className="w-24 text-xs text-gray-500">Program:</span>
-                  <span className="text-sm font-medium">{selectedTransaction.programName || '-'}</span>
-                </div>
-                {selectedTransaction.onlineReference && (
-                  <div className="flex">
-                    <span className="w-24 text-xs text-gray-500">Reference:</span>
-                    <span className="text-sm font-mono">{selectedTransaction.onlineReference}</span>
-                  </div>
-                )}
-                {selectedTransaction.note && (
-                  <div className="flex">
-                    <span className="w-24 text-xs text-gray-500">Note:</span>
-                    <span className="text-sm">{selectedTransaction.note}</span>
-                  </div>
-                )}
-                <div className="flex">
-                  <span className="w-24 text-xs text-gray-500">Created:</span>
-                  <span className="text-sm">{dayjs(selectedTransaction.createdAt).format('DD MMM YYYY')}</span>
-                </div>
+            {/* Additional info */}
+            <div style={{ background: '#fafafa', borderRadius: 8, padding: '12px 14px', border: '1px solid #f0f0f0' }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#262626', marginBottom: 10 }}>
+                Additional Information
               </div>
+              <Row gutter={[8, 8]}>
+                {[
+                  ['Program',      selectedTransaction.programName],
+                  ['Batch ID',     selectedTransaction.batchId],
+                  ['Full Payment', selectedTransaction.isFullPayment ? 'Yes ✓' : 'No'],
+                  ['Reference',    selectedTransaction.onlineReference],
+                  ['Note',         selectedTransaction.note],
+                  ['Created',      dayjs(selectedTransaction.createdAt).format('DD MMM YYYY, h:mm A')],
+                ].filter(([, v]) => v).map(([lbl, val]) => (
+                  <Col span={12} key={lbl}>
+                    <Text type="secondary" style={{ fontSize: 10, display: 'block', marginBottom: 1 }}>{lbl}</Text>
+                    <Text style={{ fontSize: 12, fontFamily: ['Batch ID', 'Reference'].includes(lbl) ? 'monospace' : undefined }}>
+                      {val}
+                    </Text>
+                  </Col>
+                ))}
+              </Row>
             </div>
 
-            {/* Footer Actions */}
-            <div className="flex justify-end gap-2 pt-3 border-t">
-              <Button size="middle" onClick={() => setViewModalVisible(false)}>
-                Close
-              </Button>
-              <Button
-                size="middle"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => {
-                  setViewModalVisible(false);
-                  // Check if program exists before showing delete confirm
-                  if (!programRef.current) {
-                    antdMessage.error('No program selected. Please select a program first.');
-                    return;
-                  }
-                  showDeleteConfirm(selectedTransaction);
-                }}
-              >
+            {/* Footer actions */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <Button onClick={() => setViewModalVisible(false)}>Close</Button>
+              <Button danger icon={<DeleteOutlined />}
+                onClick={() => { setViewModalVisible(false); showDeleteConfirm(selectedTransaction); }}>
                 Delete
               </Button>
             </div>
           </div>
         )}
       </Modal>
+
+      {/* ── PDF Drawer ───────────────────────────────────────────────────────── */}
+      <Drawer
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <FilePdfOutlined style={{ color: '#dc2626' }} />
+            <span style={{ fontSize: 13 }}>{getFileName()}</span>
+          </div>
+        }
+        width="min(900px, 96vw)"
+        placement="right"
+        onClose={() => setPdfDrawerOpen(false)}
+        open={pdfDrawerOpen}
+        maskClosable={false}
+        destroyOnClose
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <Button onClick={() => setPdfDrawerOpen(false)} size="large">Cancel</Button>
+            <PDFDownloadLink document={<TransactionsReportPDF {...pdfProps} />} fileName={getFileName()}>
+              {({ loading: pdfLoading }) => (
+                <Button type="primary" danger icon={<DownloadOutlined />} size="large" loading={pdfLoading} disabled={!transactions.length}>
+                  Download PDF ({transactions.length} records)
+                </Button>
+              )}
+            </PDFDownloadLink>
+          </div>
+        }
+      >
+        <PDFViewer style={{ width: '100%', height: 'calc(100vh - 130px)', border: 'none' }}>
+          <TransactionsReportPDF {...pdfProps} />
+        </PDFViewer>
+      </Drawer>
+
+      {/* Table style overrides */}
+      <style>{`
+        .trx-striped-row > td { background-color: #fafbff !important; }
+        .ant-table-tbody > tr:hover > td { background-color: #f0f4ff !important; transition: background 0.15s; }
+        .ant-table-thead > tr > th {
+          background: #1d2a4a !important;
+          color: #fff !important;
+          font-size: 12px !important;
+          font-weight: 600 !important;
+          padding: 10px 12px !important;
+        }
+        .ant-table-thead > tr > th::before { background-color: rgba(255,255,255,0.12) !important; }
+        .ant-table-column-sorter { color: rgba(255,255,255,0.5) !important; }
+        .ant-table-column-sorter-up.active, .ant-table-column-sorter-down.active { color: #fff !important; }
+        .ant-table-summary > tr > td { border-top: 2px solid #e8eaf6 !important; }
+        .ant-table-cell-fix-right { box-shadow: -2px 0 6px rgba(0,0,0,0.06) !important; }
+      `}</style>
     </div>
   );
 };

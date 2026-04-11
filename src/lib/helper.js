@@ -515,6 +515,7 @@ export async function getAgentMemberPaystatus({
   userId,
   programId,
   agentId,
+  closingGroupId, // Add this parameter
 }) {
   // 1️⃣ Ensure user is logged in
   const user = auth.currentUser;
@@ -522,17 +523,21 @@ export async function getAgentMemberPaystatus({
 
   // 2️⃣ Get Firebase ID Token
   const token = await user.getIdToken(true);
-const URl=process.env.NEXT_PUBLIC_GET_AGENT_PAY_STATUS_URL
+  const URl = process.env.NEXT_PUBLIC_GET_AGENT_PAY_STATUS_URL;
+
+  // Build URL with query params
+  let url = `${URl}?userId=${userId}&programId=${programId}&agentId=${agentId}`;
+  if (closingGroupId && closingGroupId !== 'all') {
+    url += `&closingGroupId=${closingGroupId}`;
+  }
+
   // 3️⃣ Call Cloud Function
-  const res = await fetch(
-    `${URl}?userId=${userId}&programId=${programId}&agentId=${agentId}`,
-    {
-      method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    }
-  );
+  const res = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
   if (!res.ok) {
     const err = await res.json();
@@ -541,7 +546,6 @@ const URl=process.env.NEXT_PUBLIC_GET_AGENT_PAY_STATUS_URL
 
   return res.json();
 }
-
 
 export const fetchSingleMemberMarriageReport = async ({
   userId,
