@@ -33,12 +33,16 @@ const styles = StyleSheet.create({
   outerBorder: {
     border: '2px solid #d4af37',
     padding: 5,
-    minHeight: '100%',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
   },
   innerBorder: {
     border: '1px solid #d4af37',
     padding: 8,
-    minHeight: '100%',
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
   },
 
   // ─── Header ───
@@ -58,32 +62,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 7,
   },
-  logoImage: { width: 65, height: 65 },
+  logoImage: { width: 85, height: 85 },
   centerContent: {
     flex: 1,
     alignItems: 'center',
     paddingHorizontal: 6,
   },
   mainTitle: {
-    fontSize: 18,
+    fontSize: 24,
     color: '#8B0000',
     fontWeight: 'bold',
     marginBottom: 2,
   },
   subTitle: {
-    fontSize: 11,
+    fontSize: 15,
     color: '#000',
     fontWeight: 'bold',
     marginBottom: 2,
   },
   address: {
-    fontSize: 8,
+    fontSize: 12,
     color: '#444',
     textAlign: 'center',
     marginBottom: 2,
   },
   phoneNumbers: {
-    fontSize: 9,
+    fontSize: 11,
     color: '#000',
     fontWeight: 'bold',
     marginBottom: 4,
@@ -103,7 +107,7 @@ const styles = StyleSheet.create({
   // ─── Agent Info Bar ───
   agentInfoSection: {
     backgroundColor: '#f0f4ff',
-    padding: 5,
+    padding: 6,
     marginBottom: 7,
     borderRadius: 3,
     flexDirection: 'row',
@@ -117,18 +121,18 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   infoLabel: {
-    fontSize: 8,
+    fontSize: 11,
     color: '#8B0000',
     fontWeight: 'bold',
     marginRight: 3,
   },
   infoValue: {
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#1a0f5e',
   },
 
-  // ─── Member Card (Improved) ───
+  // ─── Member Card ───
   memberCard: {
     flexDirection: 'row',
     backgroundColor: '#fff8f8',
@@ -204,14 +208,14 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   memberInfoLabel: {
-    fontSize: 8,
+    fontSize: 11,
     fontWeight: 'bold',
     color: '#555',
     marginRight: 3,
     minWidth: 40,
   },
   memberInfoValue: {
-    fontSize: 8,
+    fontSize: 11,
     color: '#1a0f5e',
     fontWeight: 'bold',
   },
@@ -219,101 +223,109 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#8B0000',
     borderRadius: 3,
-    padding: 4,
+    padding: 5,
     justifyContent: 'space-around',
   },
   memberStatItem: {
     alignItems: 'center',
   },
   memberStatLabel: {
-    fontSize: 7,
+    fontSize: 7.5,
     color: '#ffccc7',
     marginBottom: 1,
   },
   memberStatValue: {
-    fontSize: 10,
+    fontSize: 11,
     color: '#fff',
     fontWeight: 'bold',
   },
 
   // ─── Table Section Title ───
   tableSectionTitle: {
-    fontSize: 9,
+    fontSize: 10,
     color: '#8B0000',
     fontWeight: 'bold',
-    marginBottom: 3,
-    paddingBottom: 2,
+    marginBottom: 4,
+    paddingBottom: 3,
     borderBottom: '1.5px solid #d4af37',
     textAlign: 'center',
   },
 
   // ─── Table ───
+  tableWrapper: {
+    flex: 1,
+  },
   table: {
     width: '100%',
     borderWidth: 1,
     borderColor: '#d9d9d9',
     marginBottom: 4,
   },
+
+  // Table Header — taller, more readable
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: '#8B0000',
   },
   tableRow: {
     flexDirection: 'row',
-    minHeight: 19,
+    minHeight: 22,
     borderBottomWidth: 0.5,
-    borderBottomColor: '#e8e8e8',
+    borderBottomColor: '#e0e0e0',
   },
-  tableRowAlt: { backgroundColor: '#fafafa' },
+  tableRowAlt: { backgroundColor: '#fdf6f0' },
   tableRowEmpty: { backgroundColor: '#fdfdfd' },
+
   tableCell: {
-    paddingVertical: 8,
-    paddingHorizontal: 3,
-    fontSize: 9,
+    paddingVertical: 5,
+    paddingHorizontal: 4,
+    fontSize: 10,
     borderRightWidth: 0.5,
     borderRightColor: '#d9d9d9',
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  // Header cells — larger font, more padding, clear labels
   tableHeaderCell: {
-    paddingVertical: 4,
-    paddingHorizontal: 3,
-    fontSize: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    fontSize: 10,
     fontWeight: 'bold',
     color: '#fff',
     borderRightWidth: 0.5,
-    borderRightColor: 'rgba(255,255,255,0.3)',
+    borderRightColor: 'rgba(255,255,255,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   // Column widths
-  colSerial:      { width: '5%',  alignItems: 'center' },
-  colMarriageName:{ width: '20%', alignItems: 'flex-start' },
-  colFatherName:  { width: '17%', alignItems: 'flex-start' },
-  colRegNo:       { width: '11%', alignItems: 'center' },
-  colDate:        { width: '11%', alignItems: 'center' },
-  colPhone:       { width: '13%', alignItems: 'center' },
-  colVillage:     { width: '11%', alignItems: 'center' },
-  colAmount:      { width: '12%', alignItems: 'flex-end' },
+  colSerial:       { width: '5%',  alignItems: 'center' },
+  colMarriageName: { width: '23%', alignItems: 'flex-start' },
+  colFatherName:   { width: '23%', alignItems: 'flex-start' },
+  colRegNo:        { width: '10%', alignItems: 'center' },
+  colDate:         { width: '12%', alignItems: 'center' },
+  colPhone:        { width: '12%', alignItems: 'center' },
+  colVillage:      { width: '15%', alignItems: 'center' },
 
   textLeft:   { textAlign: 'left' },
   textCenter: { textAlign: 'center' },
   textRight:  { textAlign: 'right' },
-  smallTableText: { fontSize: 7, lineHeight: 1.1 },
-  boldTableText:  { fontSize: 7, fontWeight: 'bold', lineHeight: 1.1 },
-  emptyTableText: { fontSize: 7, color: '#e0e0e0' },
 
-  // Total Row (at end of table, after empty rows)
+  // Data text — slightly bigger than before
+  dataText:       { fontSize: 9, lineHeight: 1.2 },
+  dataBoldText:   { fontSize: 9, fontWeight: 'bold', lineHeight: 1.2 },
+  emptyTableText: { fontSize: 8, color: '#e8e8e8' },
+
+  // Total Row
   totalRow: {
     flexDirection: 'row',
     backgroundColor: '#1a0f5e',
-    minHeight: 22,
+    minHeight: 24,
     alignItems: 'center',
   },
   totalCell: {
-    padding: 4,
-    fontSize: 8,
+    padding: 5,
+    fontSize: 9,
     fontWeight: 'bold',
     color: '#fff',
     borderRightWidth: 0.5,
@@ -321,36 +333,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 
-  // Notice
+  // ─── Notice — fixed at bottom ───
   noticeSection: {
-    marginTop: 4,
-    marginBottom: 3,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
+    marginTop: 'auto',
+    marginBottom: 10,         // leave room for footer
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     backgroundColor: '#fff8e1',
     border: '1px solid #ffd54f',
     borderRadius: 3,
   },
   noticeText: {
-    fontSize: 7,
+    fontSize: 11,
     color: '#5d4037',
     fontWeight: 'bold',
     textAlign: 'center',
-    lineHeight: 1.2,
+    lineHeight: 1.4,
   },
 
-  // Footer
+  // ─── Footer ───
   footer: {
     position: 'absolute',
-    bottom: 9,
-    width: '98%',
+    bottom: 0,
+    left: 14,
+    right: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    fontSize: 7,
+    fontSize: 8,
     color: '#8c8c8c',
     borderTop: '0.5px solid #d4af37',
-    paddingTop: 3,
+    paddingTop: 4,
   },
   footerLeft:   { flex: 1 },
   footerCenter: { flex: 1, textAlign: 'center' },
@@ -366,7 +379,7 @@ const styles = StyleSheet.create({
   },
   noDataText: { fontSize: 11, color: '#8c8c8c' },
 
-  // Summary Page
+  // ─── Summary Page ───
   summaryPage: {
     backgroundColor: '#ffffff',
     fontFamily: 'NotoSansDevanagari',
@@ -417,6 +430,13 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  regCinText:{
+    fontSize: 7.8,
+    color: '#333',
+      fontWeight: 'bold',
+      letterSpacing: 0.2,
+        marginBottom: 3,
+  }
 });
 
 const PaymentStatusPDF = ({
@@ -539,6 +559,10 @@ const PaymentStatusPDF = ({
             <Text style={styles.memberInfoLabel}>गाँव:</Text>
             <Text style={styles.memberInfoValue}>{member.village || 'N/A'}</Text>
           </View>
+                <View style={styles.memberInfoGridItem}>
+            <Text style={styles.memberInfoLabel}>किस्त:</Text>
+            <Text style={styles.memberInfoValue}>{member.payAmount || 'N/A'}</Text>
+          </View>
           {/* <View style={styles.memberInfoGridItem}>
             <Text style={styles.memberInfoLabel}>पता:</Text>
             <Text style={styles.memberInfoValue}>{member.address || 'N/A'}</Text>
@@ -594,9 +618,6 @@ const PaymentStatusPDF = ({
           <View style={[styles.tableHeaderCell, styles.colVillage]}>
             <Text style={[styles.textCenter, styles.smallTableText]}>गाँव</Text>
           </View>
-          <View style={[styles.tableHeaderCell, styles.colAmount, { borderRightWidth: 0 }]}>
-            <Text style={[styles.textRight, styles.smallTableText]}>राशि</Text>
-          </View>
         </View>
 
         {/* Data Rows */}
@@ -626,11 +647,7 @@ const PaymentStatusPDF = ({
             <View style={[styles.tableCell, styles.colVillage]}>
               <Text style={[styles.textCenter, styles.smallTableText]}>{marriage.closingVillage || '-'}</Text>
             </View>
-            <View style={[styles.tableCell, styles.colAmount, { borderRightWidth: 0 }]}>
-              <Text style={[styles.textRight, styles.boldTableText, { color: '#cf1322' }]}>
-                {formatCurrency(marriage.amount)}
-              </Text>
-            </View>
+         
           </View>
         ))}
 
