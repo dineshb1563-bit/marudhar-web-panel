@@ -184,6 +184,16 @@ const AddProgramEdit = ({ program, mode = 'add', onSuccess, isDrawerOpen, setIsD
             <Form.Item name="category" label="Category" rules={[{ required: true }]}>
               <Radio.Group options={programCategories} />
             </Form.Item>
+                   <Form.Item
+                  label="Certificate Note (Hindi)"
+                  name="noteLine"
+                  rules={[{ required: true, message: 'Please enter note' }]}
+                >
+                  <Input 
+                    placeholder="Enter hindi note for certificate" 
+                    className="h-10"
+                  />
+                </Form.Item>
             <Form.Item name="about" label="Description">
               <TextArea rows={2} />
             </Form.Item>
