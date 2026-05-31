@@ -86,28 +86,29 @@ export default function Home() {
       description: "Agents",
     },
   ];
-// const MigrateData = async () => {
+const MigrateData = async () => {
 
-//   fetch("/api/migrations-api", {
-//   method: "POST",
-//   headers: { "Content-Type": "application/json" },
-//   body: JSON.stringify({
-//     action: "migrate",
-//     userUid: user.uid,
-//     programId: selectedProgram?.id,
-//   })
-// }).then(res => res.json())
-//   .then(data => {
-//     console.log("Migration result:", data);
-//     message.success("Migration completed successfully");
-//   })
-//   .catch(err => {
-//     console.error("Migration error:", err);
-//     message.error("Migration failed");
-//   }); 
-// }
+  fetch("/api/migrations-api", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    action: "migrate",
+    userUid: user.uid,
+    programId: selectedProgram?.id,
+  })
+}).then(res => res.json())
+  .then(data => {
+    console.log("Migration result:", data);
+    message.success("Migration completed successfully");
+  })
+  .catch(err => {
+    console.error("Migration error:", err);
+    message.error("Migration failed");
+  }); 
+}
   return (
     <div className="p-4">
+      {/* <button onClick={()=>MigrateData()} className="mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">Migrate Data</button> */}
       {/* Stat Cards - Simple */}
       <Row gutter={[16, 16]} className="mb-6">
         {stats.map((stat) => (

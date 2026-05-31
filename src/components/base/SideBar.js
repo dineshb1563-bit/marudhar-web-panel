@@ -48,12 +48,19 @@ const SideBar = ({ collapsed }) => {
       link: '/yojna', 
       description: 'Schemes & programs'
     },
+
     // { 
     //   icon: <FiBarChart2 size={20} />, 
     //   label: 'Reports', 
     //   link: '/reports', 
     //   description: 'View reports'
     // },
+     { 
+      icon: <FiCreditCard size={20} />, 
+      label: 'Closing Payments', 
+      link: '/closingPayments', 
+      description: 'Closing Payments '
+    },
     { 
       icon: <FiCreditCard size={20} />, 
       label: 'Payments', 

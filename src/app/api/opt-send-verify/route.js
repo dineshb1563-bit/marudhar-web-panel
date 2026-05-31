@@ -18,7 +18,7 @@ export async function POST(req) {
       const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
       const expiresAt = Date.now() + OTP_EXPIRY_MS;
       otpStore.set(email, { otp: generatedOtp, expiresAt });
-
+console.log(generatedOtp,"generatedOtp")
       // Send OTP via email
       await sendEmail(
         email,

@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, orderBy, query } from 'firebase/firestore';
 import { setAgentList, setgetAgentDataChange, setPrograms, setSelectedProgram } from '@/redux/slices/commonSlice';
 import { useDispatch, useSelector } from 'react-redux';
+import GlobalPdfWidget from './Globalpdfwidget';
 
 export default function CustomDashboardLayout({ children }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -138,6 +139,7 @@ export default function CustomDashboardLayout({ children }) {
           </div>
         </main>
       </div>
+        <GlobalPdfWidget />
     </div>
   );
 }

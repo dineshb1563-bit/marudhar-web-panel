@@ -9,6 +9,7 @@ import {
   Font,
   Image
 } from '@react-pdf/renderer';
+import logo from '@/app/api/helperfile/Images/logo';
 const styles = StyleSheet.create({
      topText: {
     flexDirection: 'row',
@@ -104,7 +105,7 @@ const PdfHeaderCom = () => {
           </View> 
            <View style={styles.headerSection}>
         <Image 
-                    src="/Images/marudhar_logo.png" 
+                    src={logo}
                     style={styles.logoImage1}
                   />
                   <View style={styles.centerContent}>

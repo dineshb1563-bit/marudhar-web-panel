@@ -20,7 +20,7 @@ import PaymentReportPDF from '../component/pdfcom/PaymentReportPDF';
 import { setSelectedProgram } from '@/redux/slices/commonSlice';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-
+import { usePdfGenerator } from '@/lib/hooks/usePdfGenerator';
 const { Search } = Input;
 const { Option } = Select;
 
@@ -30,7 +30,7 @@ const MemberPayStatus = ({ agentId, agentInfo }) => {
   const programList = useSelector((state) => state.data.programList);
   const { user } = useAuth();
   const dispatch = useDispatch();
-
+const { generatePdf } = usePdfGenerator();
   const [reportData, setReportData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [programChanging, setProgramChanging] = useState(false);
@@ -53,7 +53,10 @@ const MemberPayStatus = ({ agentId, agentInfo }) => {
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [selectionMode, setSelectionMode] = useState('all');
   const [selectAll, setSelectAll] = useState(false);
-
+  const [pagination, setPagination] = useState({
+  current: 1,
+  pageSize: 50,
+});
   const [activeFilters, setActiveFilters] = useState({
     search: false, status: false, group: false,
   });
@@ -478,7 +481,14 @@ const MemberPayStatus = ({ agentId, agentInfo }) => {
             {programList.map((p) => <Option key={p.id} value={p.id}>{p.name}</Option>)}
           </Select>
           <Button icon={<ReloadOutlined />} onClick={loadAgentPaymentData} loading={loading}>Refresh</Button>
-          <Button type="primary" icon={<FilePdfOutlined />} onClick={() => setOpen(true)} disabled={filteredData.length === 0}>
+          <Button type="primary" icon={<FilePdfOutlined />}
+            onClick={()=>{
+              generatePdf({
+  label: `${agentInfo?.displayName} · ${selectedProgram?.name}`,
+  payload: { data: getExportData(), summary, agentInfo, programInfo: selectedProgram, filters: activeFilters },
+});
+            }}
+          disabled={filteredData.length === 0}>
             Generate PDF
           </Button>
         </Space>
@@ -598,51 +608,92 @@ const MemberPayStatus = ({ agentId, agentInfo }) => {
         {filteredData.length === 0 ? (
           <Empty description="No payment data found" style={{ padding: '48px 0' }} image={Empty.PRESENTED_IMAGE_SIMPLE} />
         ) : (
+        <Table
+  rowSelection={selectionMode === 'custom' ? rowSelection : undefined}
+  columns={columns}
+  dataSource={filteredData}
+  loading={loading}
+  rowKey="memberId"
+  size="small"
+  scroll={{ x: 1000, y: 'calc(100vh - 460px)' }}
+
+  pagination={{
+    current: pagination.current,
+    pageSize: pagination.pageSize,
+
+    showSizeChanger: true,
+    showQuickJumper: true,
+
+    showTotal: (total, range) =>
+      `${range[0]}-${range[1]} of ${total} members`,
+
+    pageSizeOptions: ['10', '20', '50', '100'],
+    size: 'small',
+
+    onChange: (page, pageSize) => {
+      setPagination({
+        current: page,
+        pageSize: pageSize,
+      });
+    },
+  }}
+
+  expandable={{
+    expandedRowRender: (record) => {
+      const marriages = record.marriages || [];
+
+      if (!marriages.length) {
+        return (
+          <div
+            style={{
+              padding: 16,
+              textAlign: 'center',
+              color: '#888',
+            }}
+          >
+            No marriage payment records found
+          </div>
+        );
+      }
+
+      return (
+        <div
+          style={{
+            padding: '12px 16px',
+            background: '#fafafa',
+            borderRadius: 8,
+          }}
+        >
+          <div
+            style={{
+              fontWeight: 500,
+              marginBottom: 10,
+              fontSize: 13,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <MoneyCollectOutlined />
+            Marriage Payment Details
+          </div>
+
           <Table
-            rowSelection={selectionMode === 'custom' ? rowSelection : undefined}
-            columns={columns}
-            dataSource={filteredData}
-            loading={loading}
-            rowKey="memberId"
+            columns={marriageColumns}
+            dataSource={marriages}
+            rowKey="paymentId"
+            pagination={false}
             size="small"
-            scroll={{ x: 1000, y: 'calc(100vh - 460px)' }}
-            pagination={{
-              pageSize: 20, showSizeChanger: true, showQuickJumper: true,
-              showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} members`,
-              pageSizeOptions: ['10', '20', '50', '100'], size: 'small',
-            }}
-            expandable={{
-              expandedRowRender: (record) => {
-                const marriages = record.marriages || [];
-                if (!marriages.length) return (
-                  <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>No marriage payment records found</div>
-                );
-                return (
-                  <div style={{ padding: '12px 16px', background: '#fafafa', borderRadius: 8 }}>
-                    <div style={{ fontWeight: 500, marginBottom: 10, fontSize: 13, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <MoneyCollectOutlined /> Marriage Payment Details
-                    </div>
-                    <Table columns={marriageColumns} dataSource={marriages} rowKey="paymentId" pagination={false} size="small" bordered />
-                    <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid #f0f0f0', textAlign: 'right', fontSize: 13 }}>
-                      <span style={{ marginRight: 16 }}>
-                        Pending:{' '}
-                        <span style={{ fontWeight: 600, color: '#d46b08' }}>
-                          ₹{marriages.filter((m) => m.status === 'pending').reduce((s, m) => s + (m.amount || 0), 0).toLocaleString('en-IN')}
-                        </span>
-                      </span>
-                      <span>
-                        Paid:{' '}
-                        <span style={{ fontWeight: 600, color: '#389e0d' }}>
-                          ₹{marriages.filter((m) => m.status === 'paid').reduce((s, m) => s + (m.amount || 0), 0).toLocaleString('en-IN')}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                );
-              },
-              rowExpandable: (record) => record.marriages?.length > 0,
-            }}
+            bordered
           />
+        </div>
+      );
+    },
+
+    rowExpandable: (record) =>
+      record.marriages?.length > 0,
+  }}
+/>
         )}
       </Card>
 
