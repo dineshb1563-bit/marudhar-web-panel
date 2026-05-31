@@ -6,7 +6,7 @@ import TopBar from './TopBar';
 import SideBar from './SideBar';
 import { db } from '@/lib/firebase';
 import { collection, doc, getDocs, orderBy, query } from 'firebase/firestore';
-import { setAgentList, setgetAgentDataChange, setPrograms, setSelectedProgram } from '@/redux/slices/commonSlice';
+import { setAgentList, setClosingGroups, setgetAgentDataChange, setPrograms, setSelectedProgram } from '@/redux/slices/commonSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import GlobalPdfWidget from './Globalpdfwidget';
 
@@ -38,6 +38,25 @@ export default function CustomDashboardLayout({ children }) {
   console.error("Error fetching programs data:", error);
 }
   }
+      const fetchClosingGroups = async (programId) => {
+       if (!user?.uid || !programId) return;
+        try {
+          const groupsRef = collection(
+            db, `users/${user.uid}/programs/${programId}/closing_groups`
+          );
+          const snap = await getDocs(groupsRef);
+          const newData=snap.docs.map((doc) => ({
+            id: doc.id,
+            name: doc.data().name,
+            memberCount: doc.data().memberCount || 0,
+            members: doc.data().members || [],
+          }))
+          dispatch(setClosingGroups(newData))
+        } catch (error) {
+          console.error('Error fetching closing groups:', error);
+        } finally {
+        }
+    }
 
   const getProgramData = async() => {
     try {
@@ -47,6 +66,7 @@ export default function CustomDashboardLayout({ children }) {
       const programs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       console.log(programs,"programs")
   dispatch(setPrograms(programs))
+  fetchClosingGroups(programs[0]?.id) // Fetch closing groups for the first program by default
    dispatch(setSelectedProgram(programs[0] || null));
 } catch (error) {
   console.error("Error fetching programs data:", error);  
@@ -65,7 +85,7 @@ export default function CustomDashboardLayout({ children }) {
       getAgentData()
 
     }
-  }, [user, loading, pathname, router,agentStatusChnaged,memberStatusChnaged]);
+  }, [user, loading, router,agentStatusChnaged,memberStatusChnaged]);
 
   // Close menus when clicking outside
   useEffect(() => {
