@@ -2,7 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react'
 import {
     Drawer, message, Table, Button,
     Typography, Tag, Modal, Select, Input, Radio,
-    Space
+    Space, Tabs, Badge
 } from 'antd'
 import {
     DeleteOutlined,
@@ -13,7 +13,8 @@ import {
     UserOutlined,
     TeamOutlined,
     CheckOutlined,
-    CloseOutlined
+    CloseOutlined,
+    CopyOutlined
 } from '@ant-design/icons'
 import {
     collection, getDocs, doc, deleteDoc, query, where,
@@ -22,6 +23,7 @@ import dayjs from 'dayjs'
 import { db } from '@/lib/firebase'
 
 const { Text } = Typography
+const { TabPane } = Tabs
 
 /* ─── Design tokens ─────────────────────────────────────────────────── */
 const t = {
@@ -38,7 +40,7 @@ const styles = {
         display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8,
     },
     statsGrid: {
-        display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
+        display: 'grid', gridTemplateColumns: 'repeat(4,1fr)',
         gap: 10, margin: '14px 0',
     },
     statCard: {
@@ -86,20 +88,22 @@ const styles = {
 }
 
 /* ─── Component ──────────────────────────────────────────────────────── */
-const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosingMembers }) => {
-    const [loading, setLoading]                         = useState(false)
-    const [deleting, setDeleting]                       = useState(false)
-    const [unlinkedPayments, setUnlinkedPayments]       = useState([])
-    const [selectedRowKeys, setSelectedRowKeys]         = useState([])
-    const [searchText, setSearchText]                   = useState('')
-    const [deleteMode, setDeleteMode]                   = useState('all')
+const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram, allClosingMembers }) => {
+    const [loading, setLoading] = useState(false)
+    const [deleting, setDeleting] = useState(false)
+    const [unlinkedPayments, setUnlinkedPayments] = useState([])
+    const [duplicatePayments, setDuplicatePayments] = useState([])
+    const [selectedRowKeys, setSelectedRowKeys] = useState([])
+    const [searchText, setSearchText] = useState('')
+    const [deleteMode, setDeleteMode] = useState('all')
     const [selectedClosingMemberIds, setSelectedClosingMemberIds] = useState([])
-    // const [allClosingMembers, setAllClosingMembers]     = useState([]) // Store only real members
-    const [stats, setStats]                             = useState({ totalUnlinked: 0, byClosingMember: {}, totalAmount: 0 })
+    const [stats, setStats] = useState({ totalUnlinked: 0, byClosingMember: {}, totalAmount: 0 })
+    const [duplicateStats, setDuplicateStats] = useState({ totalDuplicates: 0, totalAmount: 0 })
+    const [activeTab, setActiveTab] = useState('unlinked')
 
     // ── FIX: controlled modal state instead of Modal.confirm() ──
-    const [confirmModalOpen, setConfirmModalOpen]       = useState(false)
-    const [pendingDeleteIds, setPendingDeleteIds]       = useState([])
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false)
+    const [pendingDeleteIds, setPendingDeleteIds] = useState([])
 
     // Prepare options with useMemo to avoid duplicates
     const closingMemberOptions = useMemo(() => {
@@ -111,11 +115,8 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
         return options
     }, [allClosingMembers])
 
-
-
-    // Handle select change - simplified
+    // Handle select change
     const handleClosingMemberChange = (values) => {
-        // Filter out any potential undefined or null values
         const cleanValues = values.filter(v => v && v !== 'SELECT_ALL')
         setSelectedClosingMemberIds(cleanValues)
         setSelectedRowKeys([])
@@ -136,27 +137,70 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
         message.info('Cleared all selections')
     }
 
+    // Find duplicate payments (same closingMemberId + same memberId)
+    const findDuplicatePayments = (payments) => {
+        const duplicateMap = new Map()
+        const duplicates = []
+
+        payments.forEach(payment => {
+            const key = `${payment.closingMemberId}_${payment.memberId}`
+            if (!duplicateMap.has(key)) {
+                duplicateMap.set(key, [])
+            }
+            duplicateMap.get(key).push(payment)
+        })
+
+        duplicateMap.forEach((value, key) => {
+            if (value.length > 1) {
+                // Keep the latest one, mark others as duplicate
+                const sorted = value.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+                const keepOriginal = sorted[0]
+                const duplicateEntries = sorted.slice(1)
+                
+                duplicateEntries.forEach(dup => {
+                    duplicates.push({
+                        ...dup,
+                        duplicateOf: keepOriginal.id,
+                        originalPaymentFor: keepOriginal.paymentFor
+                    })
+                })
+            }
+        })
+
+        return duplicates
+    }
+
     /* ── fetch unlinked payments ── */
     const fetchUnlinkedPayments = async () => {
         if (!user?.uid || !selectedProgram?.id) return
         if (!selectedClosingMemberIds.length) {
             setUnlinkedPayments([])
+            setDuplicatePayments([])
             setStats({ totalUnlinked: 0, byClosingMember: {}, totalAmount: 0 })
+            setDuplicateStats({ totalDuplicates: 0, totalAmount: 0 })
             return
         }
         setLoading(true)
         try {
-            const ref  = collection(db, `users/${user.uid}/programs/${selectedProgram.id}/payment_pending`)
+            const ref = collection(db, `users/${user.uid}/programs/${selectedProgram.id}/payment_pending`)
             const snap = await getDocs(query(ref, where('delete_flag', '==', false)))
             const selectedSet = new Set(selectedClosingMemberIds)
-            const unlinked = []
+            const allPayments = []
             let totalAmount = 0
             const byClosingMember = {}
 
             for (const payDoc of snap.docs) {
                 const data = payDoc.data()
+                const amt = data.payAmount || 200
+                
+                allPayments.push({
+                    key: payDoc.id, 
+                    id: payDoc.id, 
+                    ...data,
+                    createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
+                })
+                
                 if (!selectedSet.has(data.closingMemberId)) {
-                    const amt = data.payAmount || 200
                     totalAmount += amt
                     const cid = data.closingMemberId
                     if (!byClosingMember[cid]) {
@@ -168,14 +212,28 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                     }
                     byClosingMember[cid].count++
                     byClosingMember[cid].amount += amt
-                    unlinked.push({
-                        key: payDoc.id, id: payDoc.id, ...data,
-                        createdAt: data.createdAt?.toDate?.() || data.createdAt || new Date(),
-                    })
                 }
             }
+            
+            // Filter unlinked payments
+            const unlinked = allPayments.filter(p => !selectedSet.has(p.closingMemberId))
             setUnlinkedPayments(unlinked)
             setStats({ totalUnlinked: unlinked.length, byClosingMember, totalAmount })
+            
+            // Find duplicates in unlinked payments
+            const duplicates = findDuplicatePayments(unlinked)
+            setDuplicatePayments(duplicates)
+            
+            const duplicateTotalAmount = duplicates.reduce((sum, dup) => sum + (dup.payAmount || 200), 0)
+            setDuplicateStats({ 
+                totalDuplicates: duplicates.length, 
+                totalAmount: duplicateTotalAmount 
+            })
+            
+            if (duplicates.length > 0) {
+                message.warning(`Found ${duplicates.length} duplicate payment entries!`)
+            }
+            
         } catch (e) {
             console.error(e)
             message.error('Failed to fetch payment entries: ' + e.message)
@@ -186,18 +244,35 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
 
     /* ── step 1: collect IDs and open the controlled modal ── */
     const handleDeletePayments = () => {
-        const ids = deleteMode === 'all'
-            ? unlinkedPayments.map(p => p.id)
-            : selectedRowKeys
+        let ids = []
+        let deleteMessage = ''
+        
+        if (activeTab === 'duplicates') {
+            ids = duplicatePayments.map(p => p.id)
+            deleteMessage = `duplicate (${ids.length})`
+        } else {
+            ids = deleteMode === 'all'
+                ? unlinkedPayments.map(p => p.id)
+                : selectedRowKeys
+        }
 
         if (!ids.length) {
-            message.warning(deleteMode === 'all'
-                ? 'No payments to delete'
-                : 'Select at least one entry')
+            message.warning('No payments to delete')
             return
         }
 
         setPendingDeleteIds(ids)
+        setConfirmModalOpen(true)
+    }
+
+    // Delete specific duplicate entries only
+    const handleDeleteDuplicatesOnly = () => {
+        if (duplicatePayments.length === 0) {
+            message.warning('No duplicate entries found')
+            return
+        }
+
+        setPendingDeleteIds(duplicatePayments.map(p => p.id))
         setConfirmModalOpen(true)
     }
 
@@ -220,7 +295,7 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
         }
 
         if (success) message.success(`Deleted ${success} payment ${success === 1 ? 'entry' : 'entries'}`)
-        if (errors)  message.error(`Failed to delete ${errors} ${errors === 1 ? 'entry' : 'entries'}`)
+        if (errors) message.error(`Failed to delete ${errors} ${errors === 1 ? 'entry' : 'entries'}`)
 
         setSelectedRowKeys([])
         setPendingDeleteIds([])
@@ -229,7 +304,7 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
     }
 
     /* ── search filter ── */
-    const filteredPayments = unlinkedPayments.filter(p => {
+    const filteredPayments = (activeTab === 'duplicates' ? duplicatePayments : unlinkedPayments).filter(p => {
         if (!searchText) return true
         const s = searchText.toLowerCase()
         return (
@@ -243,11 +318,10 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
 
     useEffect(() => {
         if (open && user?.uid && selectedProgram?.id) {
-            // fetchClosingMembers()
-            // Reset selections when drawer opens
             setSelectedClosingMemberIds([])
             setSelectedRowKeys([])
             setSearchText('')
+            setActiveTab('unlinked')
         }
     }, [open, user?.uid, selectedProgram?.id])
 
@@ -256,12 +330,14 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
             fetchUnlinkedPayments()
         } else {
             setUnlinkedPayments([])
+            setDuplicatePayments([])
             setStats({ totalUnlinked: 0, byClosingMember: {}, totalAmount: 0 })
+            setDuplicateStats({ totalDuplicates: 0, totalAmount: 0 })
         }
     }, [selectedClosingMemberIds])
 
     /* ── table columns ── */
-    const columns = [
+    const baseColumns = [
         {
             title: '#', key: 'index', width: 48,
             render: (_, __, i) => <span style={{ color: '#8c8c8c', fontSize: 12 }}>{i + 1}</span>,
@@ -300,12 +376,6 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
             },
         },
         {
-            title: 'Status', key: 'status', width: 100,
-            render: () => (
-                <Tag icon={<WarningOutlined />} color="orange" style={{ fontSize: 11 }}>Not linked</Tag>
-            ),
-        },
-        {
             title: 'Created', dataIndex: 'createdAt', key: 'createdAt', width: 130,
             render: (d) => (
                 <span style={{ fontSize: 12, color: '#8c8c8c' }}>{dayjs(d).format('DD-MM-YYYY HH:mm')}</span>
@@ -313,20 +383,37 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
         },
     ]
 
+    // Add duplicate info column for duplicates tab
+    const duplicateColumns = [
+        ...baseColumns,
+        {
+            title: 'Duplicate Info', key: 'duplicateInfo', width: 150,
+            render: (_, record) => (
+                <Tag color="red" icon={<CopyOutlined />}>
+                    Duplicate of: {record.originalPaymentFor || record.duplicateOf}
+                </Tag>
+            ),
+        }
+    ]
+
     const rowSelection = {
         selectedRowKeys,
         onChange: setSelectedRowKeys,
-        getCheckboxProps: () => ({ disabled: deleteMode === 'all' }),
+        getCheckboxProps: (record) => ({ 
+            disabled: deleteMode === 'all' || activeTab === 'duplicates'
+        }),
     }
 
-    const deleteCount = deleteMode === 'all' ? unlinkedPayments.length : selectedRowKeys.length
+    const deleteCount = activeTab === 'duplicates' 
+        ? duplicatePayments.length 
+        : (deleteMode === 'all' ? unlinkedPayments.length : selectedRowKeys.length)
 
     const handleClose = () => {
         setOpen(false)
         setSelectedClosingMemberIds([])
         setSelectedRowKeys([])
         setSearchText('')
-        setAllClosingMembers([])
+        setActiveTab('unlinked')
     }
 
     // Custom dropdown renderer with select all in menu
@@ -371,13 +458,13 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                 title={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 15 }}>
                         <DeleteOutlined style={{ color: t.red.text }} />
-                        Delete unlinked payment entries
+                        Delete Payment Entries
                     </div>
                 }
                 placement="right"
                 onClose={handleClose}
                 open={open}
-                width="82%"
+                width="85%"
                 bodyStyle={{ padding: '18px 20px' }}
                 destroyOnHidden
                 footer={
@@ -385,9 +472,11 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                         <Button onClick={handleClose}>Close</Button>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             <span style={{ fontSize: 13, color: '#8c8c8c' }}>
-                                {deleteMode === 'all'
-                                    ? `${unlinkedPayments.length} entries will be deleted`
-                                    : `${selectedRowKeys.length} of ${unlinkedPayments.length} selected`}
+                                {activeTab === 'duplicates' 
+                                    ? `${duplicatePayments.length} duplicate entries will be deleted`
+                                    : (deleteMode === 'all'
+                                        ? `${unlinkedPayments.length} entries will be deleted`
+                                        : `${selectedRowKeys.length} of ${unlinkedPayments.length} selected`)}
                             </span>
                             <Button
                                 danger
@@ -397,7 +486,9 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                                 loading={deleting}
                                 disabled={deleteCount === 0}
                             >
-                                {deleteMode === 'all' ? 'Delete all unlinked' : 'Delete selected'}
+                                {activeTab === 'duplicates' 
+                                    ? `Delete all duplicates (${duplicatePayments.length})`
+                                    : (deleteMode === 'all' ? 'Delete all unlinked' : 'Delete selected')}
                                 {deleteCount > 0 && (
                                     <span style={styles.deletePill}>{deleteCount}</span>
                                 )}
@@ -406,7 +497,7 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                     </div>
                 }
             >
-                {/* ── Closing member select with Select All option ── */}
+                {/* ── Closing member select ── */}
                 <div style={{ marginBottom: 14 }}>
                     <div style={styles.sectionLabel}>
                         <TeamOutlined /> Select closing members (marriage cases)
@@ -433,27 +524,10 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                             ✓ {selectedClosingMemberIds.length} closing member{selectedClosingMemberIds.length > 1 ? 's' : ''} selected
                         </div>
                     )}
-                    {!selectedClosingMemberIds.length && allClosingMembers.length > 0 && (
-                        <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 5 }}>
-                            Select one or more closing members to scan for unlinked payments. Total available: {allClosingMembers.length}
-                        </div>
-                    )}
                 </div>
 
                 {selectedClosingMemberIds.length > 0 && (
                     <>
-                        {/* ── Info box ── */}
-                        <div style={styles.infoBox}>
-                            <div style={styles.infoBoxTitle}>
-                                <ExclamationCircleOutlined /> What are unlinked entries?
-                            </div>
-                            <div style={{ fontSize: 13, color: '#595959' }}>
-                                Payment entries whose closing member is <strong>not</strong> in your{' '}
-                                {selectedClosingMemberIds.length} selected member
-                                {selectedClosingMemberIds.length > 1 ? 's' : ''}. These can be safely deleted.
-                            </div>
-                        </div>
-
                         {/* ── Stats row ── */}
                         <div style={styles.statsGrid}>
                             <div style={styles.statCard}>
@@ -461,8 +535,17 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                                 <div style={styles.statValue(t.amber.text)}>{stats.totalUnlinked}</div>
                             </div>
                             <div style={styles.statCard}>
-                                <div style={styles.statLabel}>Total amount</div>
+                                <div style={styles.statLabel}>Unlinked amount</div>
                                 <div style={styles.statValue(t.red.text)}>₹{stats.totalAmount.toLocaleString()}</div>
+                            </div>
+                            <div style={styles.statCard}>
+                                <div style={styles.statLabel}>Duplicate entries</div>
+                                <div style={styles.statValue(t.red.text)}>
+                                    {duplicateStats.totalDuplicates}
+                                    {duplicateStats.totalDuplicates > 0 && (
+                                        <Badge count="⚠️" style={{ marginLeft: 8 }} />
+                                    )}
+                                </div>
                             </div>
                             <div style={styles.statCard}>
                                 <div style={styles.statLabel}>Selected members</div>
@@ -470,101 +553,151 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                             </div>
                         </div>
 
-                        {/* ── Breakdown by closing member ── */}
-                        {Object.keys(stats.byClosingMember).length > 0 && (
-                            <>
-                                <div style={{ ...styles.sectionLabel, marginTop: 4 }}>
-                                    <UserOutlined /> Breakdown by closing member
+                        {/* ── Tabs for Unlinked and Duplicates ── */}
+                        <Tabs activeKey={activeTab} onChange={setActiveTab} style={{ marginTop: 8 }}>
+                            <TabPane 
+                                tab={
+                                    <span>
+                                        <UserOutlined />
+                                        Unlinked Entries ({stats.totalUnlinked})
+                                    </span>
+                                } 
+                                key="unlinked"
+                            >
+                                {/* ── Delete mode + search toolbar ── */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+                                    <Radio.Group
+                                        value={deleteMode}
+                                        onChange={(e) => {
+                                            setDeleteMode(e.target.value)
+                                            if (e.target.value === 'all') setSelectedRowKeys([])
+                                        }}
+                                        buttonStyle="solid"
+                                        size="small"
+                                    >
+                                        <Radio.Button value="all">Delete all ({unlinkedPayments.length})</Radio.Button>
+                                        <Radio.Button value="selected">Select specific</Radio.Button>
+                                    </Radio.Group>
+
+                                    <Input
+                                        prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
+                                        placeholder="Search name, reg. no., phone…"
+                                        allowClear
+                                        style={{ flex: 1, minWidth: 220 }}
+                                        value={searchText}
+                                        onChange={(e) => setSearchText(e.target.value)}
+                                        size="small"
+                                    />
+
+                                    <Button
+                                        icon={<ReloadOutlined />}
+                                        onClick={fetchUnlinkedPayments}
+                                        loading={loading}
+                                        size="small"
+                                    >
+                                        Refresh
+                                    </Button>
                                 </div>
-                                <div style={styles.breakdownGrid}>
-                                    {Object.entries(stats.byClosingMember).map(([cid, d]) => (
-                                        <div key={cid} style={styles.breakdownCard}>
-                                            <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>{d.name}</div>
-                                            <div style={{ fontSize: 12, color: '#8c8c8c' }}>Reg: {d.regNo}</div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
-                                                <span style={{ fontSize: 12, color: t.amber.text, fontWeight: 600 }}>{d.count} entries</span>
-                                                <span style={{ fontSize: 12, color: t.red.text, fontWeight: 600 }}>₹{d.amount.toLocaleString()}</span>
-                                            </div>
+
+                                {/* ── Table ── */}
+                                <Table
+                                    rowSelection={deleteMode === 'selected' ? rowSelection : undefined}
+                                    columns={baseColumns}
+                                    dataSource={filteredPayments}
+                                    loading={loading || deleting}
+                                    size="small"
+                                    scroll={{ x: 900, y: 'calc(100vh - 560px)' }}
+                                    pagination={{
+                                        pageSize: 25,
+                                        showSizeChanger: true,
+                                        showQuickJumper: true,
+                                        showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+                                        size: 'small',
+                                    }}
+                                    locale={{
+                                        emptyText: loading
+                                            ? 'Scanning for unlinked entries…'
+                                            : 'No unlinked payment entries found.',
+                                    }}
+                                />
+                            </TabPane>
+
+                            <TabPane 
+                                tab={
+                                    <span>
+                                        <CopyOutlined />
+                                        Duplicate Entries ({duplicateStats.totalDuplicates})
+                                        {duplicateStats.totalDuplicates > 0 && (
+                                            <Badge count={duplicateStats.totalDuplicates} style={{ marginLeft: 8, backgroundColor: '#ff4d4f' }} />
+                                        )}
+                                    </span>
+                                } 
+                                key="duplicates"
+                            >
+                                {duplicatePayments.length > 0 ? (
+                                    <>
+                                        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Text type="secondary">
+                                                Found {duplicatePayments.length} duplicate entries. Total amount: ₹{duplicateStats.totalAmount.toLocaleString()}
+                                            </Text>
+                                            <Button
+                                                danger
+                                                size="small"
+                                                onClick={handleDeleteDuplicatesOnly}
+                                                icon={<DeleteOutlined />}
+                                                disabled={deleting}
+                                            >
+                                                Delete All Duplicates ({duplicatePayments.length})
+                                            </Button>
                                         </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-
-                        {/* ── Delete mode + search toolbar ── */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
-                            <Radio.Group
-                                value={deleteMode}
-                                onChange={(e) => {
-                                    setDeleteMode(e.target.value)
-                                    if (e.target.value === 'all') setSelectedRowKeys([])
-                                }}
-                                buttonStyle="solid"
-                                size="small"
-                            >
-                                <Radio.Button value="all">Delete all ({unlinkedPayments.length})</Radio.Button>
-                                <Radio.Button value="selected">Select specific</Radio.Button>
-                            </Radio.Group>
-
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#bfbfbf' }} />}
-                                placeholder="Search name, reg. no., phone…"
-                                allowClear
-                                style={{ flex: 1, minWidth: 220 }}
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                                size="small"
-                            />
-
-                            <Button
-                                icon={<ReloadOutlined />}
-                                onClick={fetchUnlinkedPayments}
-                                loading={loading}
-                                size="small"
-                            >
-                                Refresh
-                            </Button>
-                        </div>
-
-                        {/* ── Table ── */}
-                        <Table
-                            rowSelection={deleteMode === 'selected' ? rowSelection : undefined}
-                            columns={columns}
-                            dataSource={filteredPayments}
-                            loading={loading || deleting}
-                            size="small"
-                            scroll={{ x: 900, y: 'calc(100vh - 560px)' }}
-                            pagination={{
-                                pageSize: 25,
-                                showSizeChanger: true,
-                                showQuickJumper: true,
-                                showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
-                                size: 'small',
-                            }}
-                            locale={{
-                                emptyText: loading
-                                    ? 'Scanning for unlinked entries…'
-                                    : 'No unlinked payment entries found.',
-                            }}
-                        />
+                                        <Table
+                                            columns={duplicateColumns}
+                                            dataSource={filteredPayments}
+                                            loading={loading || deleting}
+                                            size="small"
+                                            scroll={{ x: 1000, y: 'calc(100vh - 560px)' }}
+                                            pagination={{
+                                                pageSize: 25,
+                                                showSizeChanger: true,
+                                                showQuickJumper: true,
+                                                showTotal: (total, range) => `${range[0]}–${range[1]} of ${total}`,
+                                                size: 'small',
+                                            }}
+                                            rowKey="id"
+                                        />
+                                    </>
+                                ) : (
+                                    <div style={{ textAlign: 'center', padding: 40, color: '#8c8c8c' }}>
+                                        <CopyOutlined style={{ fontSize: 48, marginBottom: 16 }} />
+                                        <div>No duplicate entries found</div>
+                                    </div>
+                                )}
+                            </TabPane>
+                        </Tabs>
 
                         {/* ── Warning note ── */}
-                        {unlinkedPayments.length > 0 && (
+                        {(unlinkedPayments.length > 0 || duplicatePayments.length > 0) && (
                             <div style={styles.warningBox}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                                     <WarningOutlined style={{ color: t.red.text }} />
                                     <span style={{ fontWeight: 600, fontSize: 13, color: t.red.text }}>Before you delete</span>
                                 </div>
-                                {[
-                                    `${unlinkedPayments.length} entries are not linked to any of your ${selectedClosingMemberIds.length} selected closing member(s).`,
-                                    `Deleting will clear ₹${stats.totalAmount.toLocaleString()} from pending payments.`,
-                                    'Payments for your selected closing members will NOT be affected.',
-                                    'This action cannot be undone.',
-                                ].map(txt => (
-                                    <div key={txt} style={{ fontSize: 12, color: '#595959', marginTop: 3, paddingLeft: 2 }}>
-                                        · {txt}
+                                {unlinkedPayments.length > 0 && (
+                                    <div style={{ fontSize: 12, color: '#595959', marginTop: 3, paddingLeft: 2 }}>
+                                        · {unlinkedPayments.length} entries are not linked to any of your selected closing members.
                                     </div>
-                                ))}
+                                )}
+                                {duplicatePayments.length > 0 && (
+                                    <div style={{ fontSize: 12, color: '#595959', marginTop: 3, paddingLeft: 2 }}>
+                                        · {duplicatePayments.length} duplicate entries found (same closing member + same paying member).
+                                    </div>
+                                )}
+                                <div style={{ fontSize: 12, color: '#595959', marginTop: 3, paddingLeft: 2 }}>
+                                    · Deleting will clear total amount of ₹{(stats.totalAmount + duplicateStats.totalAmount).toLocaleString()}
+                                </div>
+                                <div style={{ fontSize: 12, color: '#595959', marginTop: 3, paddingLeft: 2 }}>
+                                    · This action cannot be undone.
+                                </div>
                             </div>
                         )}
                     </>
@@ -585,7 +718,7 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                 title={
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <ExclamationCircleOutlined style={{ color: t.red.text }} />
-                        <span>Delete unlinked payment entries</span>
+                        <span>Delete payment entries</span>
                     </div>
                 }
                 centered
@@ -594,9 +727,7 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
             >
                 <div style={{ padding: '8px 0' }}>
                     <p style={{ marginBottom: 8 }}>
-                        You are about to delete{' '}
-                        <strong>{pendingDeleteIds.length}</strong>{' '}
-                        payment {pendingDeleteIds.length === 1 ? 'entry' : 'entries'}.
+                        You are about to delete <strong>{pendingDeleteIds.length}</strong> payment entries.
                     </p>
                     <div style={{
                         background: t.red.bg,
@@ -608,7 +739,9 @@ const DeleteUnlinkedPayments = ({ open, setOpen, user, selectedProgram,allClosin
                             This action cannot be undone.
                         </div>
                         <div style={{ fontSize: 12, color: '#595959' }}>
-                            These entries are not linked to any of your selected closing members.
+                            {activeTab === 'duplicates' 
+                                ? 'These are duplicate entries that will be removed.'
+                                : 'These entries are not linked to your selected closing members.'}
                         </div>
                     </div>
                 </div>
