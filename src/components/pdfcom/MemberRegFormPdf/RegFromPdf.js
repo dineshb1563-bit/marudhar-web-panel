@@ -339,7 +339,7 @@ const RegFormPdf = ({data, selectedProgram}) => {
 
             {/* Header Section */}
             <View style={styles.headerSection}>
-              <Text style={styles.mainTitle}>मरुधर जन कल्याण सेवा संस्थान</Text>
+              <Text style={styles.mainTitle}>मरुधर जन कल्याण फाउंडेशन</Text>
               <Text style={styles.address}>
                कार्यालय पता : मु. पो. गेलावास तह. रोहट जिला - पाली ( राजस्थान) 306421
               </Text>
@@ -347,7 +347,7 @@ const RegFormPdf = ({data, selectedProgram}) => {
                  संथापक : D.R. Bhati 99823 04730 / 90793 91818
               </Text>
                 <Text style={styles.regNotext}>
-                              Regd No. COOP/2025/PALI/500486
+                              Regd No. U88900RJ2026NPL113893
                                   </Text>
               <View style={styles.schemeBox}>
                 <Text style={styles.schemeText}>सदस्यता फॉर्म</Text>

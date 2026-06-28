@@ -732,7 +732,7 @@ const PaymentStatusPDF = ({
               </View>
               <View style={styles.footer}>
                 <Text style={styles.footerLeft}>जनरेट: {currentDate} {currentTime}</Text>
-                <Text style={styles.footerCenter}>मरुधर जन कल्याण सेवा संस्थान © 2025</Text>
+                <Text style={styles.footerCenter}>मरुधर जन कल्याण फाउंडेशन © 2025</Text>
                 <Text style={styles.footerRight}>एजेंट ID: {agentInfo?.agentId || 'N/A'}</Text>
               </View>
             </View>

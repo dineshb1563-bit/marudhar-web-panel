@@ -408,7 +408,7 @@ const TransactionsReportPDF = ({
   };
 
   return (
-    <Document title="Transactions Report" author="मरुधर जन कल्याण सेवा संस्थान">
+    <Document title="Transactions Report" author="मरुधर जन कल्याण फाउंडेशन">
       <Page size="A4" style={S.page}>
         <View style={S.outerBorder}>
           <View style={S.innerBorder}>
@@ -491,7 +491,7 @@ const TransactionsReportPDF = ({
         {/* ── Fixed footer — appears on every page ── */}
         <View style={S.footer} fixed>
           <Text style={S.footerText}>जनरेट: {generatedDate || `${currentDate} ${currentTime}`}</Text>
-          <Text style={S.footerText}>मरुधर जन कल्याण सेवा संस्थान © 2025</Text>
+          <Text style={S.footerText}>मरुधर जन कल्याण फाउंडेशन © 2025</Text>
           <Text style={S.pageNum} render={({ pageNumber, totalPages }) => `पृष्ठ ${pageNumber} / ${totalPages}`} />
         </View>
       </Page>

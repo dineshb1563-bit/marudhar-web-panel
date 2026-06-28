@@ -24,12 +24,12 @@ const C = {
 };
 
 const TRUST_INFO = {
-  name: "मरुधर जन कल्याण सेवा संस्थान",
+  name: "मरुधर जन कल्याण फाउंडेशन",
   nameEn: "Marudhar Jan Kalyan Seva Sansthan",
   address: "मु. पो. गेलावास, तह. रोहट, जिला - पाली (राजस्थान) 306421",
   phone: ["99823 04730", "90793 91818"],
-  email: "contact@sawalajiseva.org",
-  regNo: "COOP/2025/PALI/500486",
+  email: "dineshb1563@gmail.com",
+  regNo: "U88900RJ2026NPL113893",
   established: "2025"
 };
 

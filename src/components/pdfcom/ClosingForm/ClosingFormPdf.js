@@ -519,7 +519,7 @@ const ClosingFormPdf = ({data, selectedProgram,payStatus,paymentData}) => {
 
             {/* Header Section */}
             <View style={styles.headerSection}>
-              <Text style={styles.mainTitle}>मरुधर जन कल्याण सेवा संस्थान</Text>
+              <Text style={styles.mainTitle}>मरुधर जन कल्याण फाउंडेशन</Text>
               <Text style={styles.address}>
  कार्यालय पता : मु. पो. गेलावास तह. रोहट जिला - पाली ( राजस्थान) 306421
               </Text>
@@ -720,7 +720,7 @@ const ClosingFormPdf = ({data, selectedProgram,payStatus,paymentData}) => {
                             <View style={styles.signatureBox}>
                                 <View style={styles.signatureLine} />
                                 <Text style={styles.signatureLabel}>संस्थापक हस्ताक्षर</Text>
-                                <Text style={{ fontSize: 8, color: '#666' }}>मरुधर जन कल्याण सेवा संस्थान</Text>
+                                <Text style={{ fontSize: 8, color: '#666' }}>मरुधर जन कल्याण फाउंडेशन</Text>
                             </View>
                         </View>
           </View>

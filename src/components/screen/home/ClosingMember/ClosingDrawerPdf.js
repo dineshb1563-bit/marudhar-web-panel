@@ -386,7 +386,7 @@ const ClosingDrawerPdf = ({ data, selectedProgram }) => {
     
     recipientName: data?.addedByName || 'रामकुमार शर्मा',
     recipientRole: 'परिवार के प्रतिनिधि',
-    organizationName: 'मरुधर जन कल्याण सेवा संस्थान',
+    organizationName: 'मरुधर जन कल्याण फाउंडेशन',
     organizationTitle: 'संस्था अध्यक्ष',
     contactPhone1: '97238 78021',
     contactPhone2: '85118 78021',
@@ -605,7 +605,7 @@ const ClosingDrawerPdf = ({ data, selectedProgram }) => {
 
               {/* Organization */}
               <View style={styles.footerBox}>
-                <Text style={styles.footerValue}>मरुधर जन कल्याण सेवा संस्थान</Text>
+                <Text style={styles.footerValue}>मरुधर जन कल्याण फाउंडेशन</Text>
                 <Text style={styles.footerLabel}>संस्थान</Text>
               </View>
             </View>

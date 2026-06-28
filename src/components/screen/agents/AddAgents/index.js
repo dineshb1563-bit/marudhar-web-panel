@@ -337,7 +337,7 @@ const AddAgent = () => {
 
               <div class="button-container">
                 <a href="#" class="button">
-                   मरुधर जन कल्याण सेवा संस्थान ऐप में लॉगिन करें →
+                   मरुधर जन कल्याण फाउंडेशन ऐप में लॉगिन करें →
                 </a>
               </div>
 
@@ -346,7 +346,7 @@ const AddAgent = () => {
                 
                 <p style="margin-top: 25px;">
                   धन्यवाद,<br>
-                  <strong> मरुधर जन कल्याण सेवा संस्थान</strong>
+                  <strong> मरुधर जन कल्याण फाउंडेशन</strong>
                 </p>
               </div>
             </div>
@@ -356,7 +356,7 @@ const AddAgent = () => {
                  <span>मरुधर जन कल्याण</span> सेवा संस्थान
               </div>
               <p>यह एक स्वचालित संदेश है। कृपया इस ईमेल का जवाब न दें।</p>
-              <p>© ${new Date().getFullYear()}  मरुधर जन कल्याण सेवा संस्थान. सर्वाधिकार सुरक्षित।</p>
+              <p>© ${new Date().getFullYear()}  मरुधर जन कल्याण फाउंडेशन. सर्वाधिकार सुरक्षित।</p>
               <p style="margin-top: 15px; font-size: 12px;">
                 <a href="#">गोपनीयता नीति</a> • <a href="#">संपर्क करें</a>
               </p>
