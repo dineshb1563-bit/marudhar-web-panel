@@ -604,6 +604,7 @@ export const fetchSingleMemberMarriageReport = async ({
       const marriageData = {
         paymentId: docSnap.id,
         payerMemberId: payment.memberId,
+        closingGroupId:payment.closingGroupId,
         closingMemberId: payment.closingMemberId,
         closingMemberName: payment.closingMemberName || "",
         closingRegNo: payment.closingRegNo || "NA",

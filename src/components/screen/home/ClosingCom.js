@@ -14,7 +14,7 @@ import {
   UserOutlined, UploadOutlined, CalendarOutlined,
   FileTextOutlined, PictureOutlined, DeleteOutlined,
   FilePdfOutlined, TeamOutlined, SwapOutlined, PlusOutlined,
-  RollbackOutlined, ExclamationCircleOutlined
+  RollbackOutlined, ExclamationCircleOutlined, SearchOutlined
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { db, storage } from '@/lib/firebase';
@@ -31,7 +31,7 @@ import {
   FiRefreshCw, FiCreditCard, FiUsers, FiCheckCircle,
   FiEye, FiEdit2, FiFileText, FiDollarSign, FiRotateCcw,
   FiUser, FiCalendar, FiMessageSquare, FiImage, FiPlus,
-  FiAlertTriangle
+  FiAlertTriangle, FiSearch
 } from 'react-icons/fi';
 import GenerateRasidEntry from './ClosingMember/GenerateRasidEntry';
 import DeleteUnlinkedPayments from './ClosingMember/DeleteOrphanedPayments';
@@ -85,6 +85,7 @@ const ModalSection = ({ icon: Icon, title, children }) => (
 // ─── Main Component ───────────────────────────────────────────────────────────
 const ClosingCom = ({ user, selectedProgram }) => {
   const [allMembersData, setAllMembersData] = useState([]);
+  const [filteredMembersData, setFilteredMembersData] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [viewModalVisible, setViewModalVisible] = useState(false);
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -109,6 +110,11 @@ const ClosingCom = ({ user, selectedProgram }) => {
   const [changingGroup, setChangingGroup] = useState(false);
   const [revertingId, setRevertingId] = useState(null);
   const [isDeleteOrphanedPaymentsOpen, setIsDeleteOrphanedPaymentsOpen] = useState(false);
+
+  // ─── Search and Filter States ──────────────────────────────────────────────
+  const [searchText, setSearchText] = useState('');
+  const [selectedFilterGroup, setSelectedFilterGroup] = useState(null);
+  const [filterStatus, setFilterStatus] = useState(null);
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
   const fetchClosingGroups = async () => {
@@ -136,6 +142,7 @@ const ClosingCom = ({ user, selectedProgram }) => {
         { field: 'closingAt', direction: 'desc' }
       );
       setAllMembersData(data);
+      setFilteredMembersData(data);
     } catch (e) {
       message.error("Failed to fetch data");
     } finally {
@@ -149,6 +156,54 @@ const ClosingCom = ({ user, selectedProgram }) => {
       fetchClosingGroups();
     }
   }, [user, selectedProgram]);
+
+  // ─── Search and Filter Functions ──────────────────────────────────────────
+  const applyFilters = () => {
+    let filtered = [...allMembersData];
+
+    // Search filter
+    if (searchText.trim()) {
+      const searchLower = searchText.toLowerCase().trim();
+      filtered = filtered.filter(member => {
+        const searchableFields = [
+          member.displayName,
+          member.name,
+          member.fatherName,
+          member.registrationNumber,
+          member.village,
+          member.district,
+          member.phone,
+          member.phoneNo,
+          member.closingGroupName
+        ].filter(Boolean);
+        
+        return searchableFields.some(field => 
+          field.toString().toLowerCase().includes(searchLower)
+        );
+      });
+    }
+
+    // Group filter
+    if (selectedFilterGroup) {
+      filtered = filtered.filter(member => 
+        member.closingGroupId === selectedFilterGroup
+      );
+    }
+
+    // Status filter
+    if (filterStatus) {
+      filtered = filtered.filter(member => 
+        member.status === filterStatus
+      );
+    }
+
+    setFilteredMembersData(filtered);
+  };
+
+  // Apply filters whenever filter criteria change
+  useEffect(() => {
+    applyFilters();
+  }, [searchText, selectedFilterGroup, filterStatus, allMembersData]);
 
   // ── Group ops ──────────────────────────────────────────────────────────────
   const handleCreateGroup = async () => {
@@ -464,6 +519,42 @@ const ClosingCom = ({ user, selectedProgram }) => {
         }
         .header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         
+        /* Filter bar */
+        .filter-bar {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 12px 24px;
+          background: #f8fafc;
+          border-bottom: 1px solid #f1f5f9;
+          flex-wrap: wrap;
+        }
+        .filter-search {
+          flex: 1;
+          min-width: 200px;
+          max-width: 400px;
+        }
+        .filter-select {
+          min-width: 150px;
+        }
+        .filter-clear-btn {
+          padding: 4px 12px;
+          border-radius: 8px;
+          border: 1px solid #e2e8f0;
+          background: #fff;
+          font-size: 12px;
+          font-weight: 600;
+          color: #64748b;
+          cursor: pointer;
+          transition: all 0.15s;
+          font-family: 'Outfit', sans-serif;
+        }
+        .filter-clear-btn:hover {
+          background: #f1f5f9;
+          border-color: #cbd5e1;
+          color: #0f172a;
+        }
+
         /* Buttons */
         .hdr-btn {
           display: inline-flex; align-items: center; gap: 6px;
@@ -686,6 +777,27 @@ const ClosingCom = ({ user, selectedProgram }) => {
         /* Drawer overrides */
         .ant-drawer-content { font-family: 'Outfit', sans-serif !important; }
         .ant-drawer-title { font-family: 'Outfit', sans-serif !important; font-weight: 800 !important; }
+
+        /* Search input styles */
+        .search-input {
+          border-radius: 10px !important;
+          font-family: 'Outfit', sans-serif !important;
+        }
+        .search-input .ant-input-prefix {
+          color: #94a3b8;
+        }
+        .filter-select .ant-select-selector {
+          border-radius: 10px !important;
+          font-family: 'Outfit', sans-serif !important;
+        }
+        .filter-result-count {
+          font-size: 12px;
+          font-weight: 600;
+          color: #94a3b8;
+          padding: 4px 12px;
+          background: #f1f5f9;
+          border-radius: 20px;
+        }
       `}</style>
 
       <div className="closing-root">
@@ -697,14 +809,14 @@ const ClosingCom = ({ user, selectedProgram }) => {
             </div>
             <div>
               <p className="table-title-text">Closed Cases</p>
-              <p className="table-title-count">{allMembersData.length} total records</p>
+              <p className="table-title-count">{filteredMembersData.length} records</p>
             </div>
           </div>
           <div className="header-actions">
-                 <button className="hdr-btn" onClick={() => setIsDeleteOrphanedPaymentsOpen(true)}>
-             <FaTrash size={13} /> Delete rasid entry
+            <button className="hdr-btn" onClick={() => setIsDeleteOrphanedPaymentsOpen(true)}>
+              <FaTrash size={13} /> Delete rasid entry
             </button>
-                   <button className="hdr-btn" onClick={() => setIsOpenRasidEntry(true)}>
+            <button className="hdr-btn" onClick={() => setIsOpenRasidEntry(true)}>
               <FiPlus size={13} /> Create Payment Entry
             </button>
             <button className="hdr-btn" onClick={() => setIsOpenDrawer(true)}>
@@ -716,18 +828,103 @@ const ClosingCom = ({ user, selectedProgram }) => {
           </div>
         </div>
 
+        {/* ── Filter Bar ── */}
+        <div className="filter-bar">
+          <div className="filter-search">
+            <Input
+              placeholder="Search by name, reg no, father, village..."
+              prefix={<FiSearch size={16} style={{ color: '#94a3b8' }} />}
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              allowClear
+              className="search-input"
+            />
+          </div>
+          
+          <Select
+            className="filter-select"
+            placeholder="Filter by Group"
+            value={selectedFilterGroup}
+            onChange={setSelectedFilterGroup}
+            allowClear
+            style={{ minWidth: 150 }}
+          >
+            {closingGroups.map(group => (
+              <Option key={group.id} value={group.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{group.name}</span>
+                  <Badge 
+                    count={allMembersData.filter(m => m.closingGroupId === group.id).length} 
+                    showZero 
+                    style={{ backgroundColor: '#10b981' }} 
+                  />
+                </div>
+              </Option>
+            ))}
+          </Select>
+
+          <Select
+            className="filter-select"
+            placeholder="Filter by Status"
+            value={filterStatus}
+            onChange={setFilterStatus}
+            allowClear
+            style={{ minWidth: 120 }}
+          >
+            <Option value="closed">Closed</Option>
+            <Option value="accepted">Accepted</Option>
+          </Select>
+
+          {(searchText || selectedFilterGroup || filterStatus) && (
+            <button 
+              className="filter-clear-btn"
+              onClick={() => {
+                setSearchText('');
+                setSelectedFilterGroup(null);
+                setFilterStatus(null);
+              }}
+            >
+              Clear All Filters
+            </button>
+          )}
+
+          <span className="filter-result-count">
+            {filteredMembersData.length} results
+          </span>
+        </div>
+
         {/* Table */}
         <Table
           columns={columns}
-          dataSource={allMembersData}
+          dataSource={filteredMembersData}
           rowKey="id"
-          pagination={{ pageSize: 8, showTotal: (t) => `${t} records`, showSizeChanger: false }}
+          pagination={{ 
+            pageSize: 8, 
+            showTotal: (t) => `${t} records`, 
+            showSizeChanger: false 
+          }}
           scroll={{ x: 860 }}
           loading={isLoading}
           locale={{ emptyText: (
             <div style={{ padding: '40px 0', fontFamily: 'Outfit, sans-serif', color: '#94a3b8' }}>
               <FiCheckCircle size={36} style={{ opacity: 0.3, display: 'block', margin: '0 auto 12px' }} />
-              <p style={{ fontWeight: 600 }}>No closed cases found</p>
+              <p style={{ fontWeight: 600 }}>
+                {searchText || selectedFilterGroup || filterStatus 
+                  ? 'No matching records found' 
+                  : 'No closed cases found'}
+              </p>
+              {(searchText || selectedFilterGroup || filterStatus) && (
+                <Button 
+                  type="link" 
+                  onClick={() => {
+                    setSearchText('');
+                    setSelectedFilterGroup(null);
+                    setFilterStatus(null);
+                  }}
+                >
+                  Clear filters
+                </Button>
+              )}
             </div>
           )}}
         />
