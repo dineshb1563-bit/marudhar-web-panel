@@ -113,6 +113,7 @@ const AddPaymentModal = () => {
   const [marriageSearchText, setMarriageSearchText]     = useState('');
   const [currentStep, setCurrentStep]                   = useState(0);
   const [paymentSummary, setPaymentSummary]             = useState(null);
+  const [isLoadingPending, setIsLoadingPending]         = useState(false);
 
   /* ── Status tab + Closing Group filter ── */
   const [activeStatusTab, setActiveStatusTab]           = useState('pending');
@@ -130,9 +131,18 @@ const AddPaymentModal = () => {
       .filter((p) => p.memberId === selectedMember)
       .map((p) => p.closingMemberId);
 
-    const pending     = marriages.filter((m) => pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)).length;
-    const paid        = alreadyPaidMarriages.length;
-    const notEligible = marriages.filter((m) => !pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)).length;
+    const pending = marriages.filter(
+      (m) => pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)
+    ).length;
+    
+    const paid = marriages.filter(
+      (m) => alreadyPaidMarriages.includes(m.id)
+    ).length;
+    
+    const notEligible = marriages.filter(
+      (m) => !pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)
+    ).length;
+    
     return { pending, paid, not_eligible: notEligible };
   }, [marriages, paymentPendingEntries, alreadyPaidMarriages, selectedMember]);
 
@@ -164,7 +174,9 @@ const AddPaymentModal = () => {
   /* ── Fetch member payment info ── */
   const fetchMemberPaymentInfo = async (memberId) => {
     if (!memberId || !selectedProgram || !user) return;
+    setIsLoadingPending(true);
     try {
+      // Fetch pending payments for this member
       const pendRef = collection(db, `users/${user.uid}/programs/${selectedProgram.id}/payment_pending`);
       const pendSnap = await getDocs(query(pendRef,
         where('memberId', '==', memberId),
@@ -174,6 +186,7 @@ const AddPaymentModal = () => {
       const pendingEntries = pendSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setPaymentPendingEntries(pendingEntries);
 
+      // Fetch already paid transactions
       const txRef = collection(db, `users/${user.uid}/programs/${selectedProgram.id}/transactions`);
       const paidSnap = await getDocs(query(txRef,
         where('payerId', '==', memberId),
@@ -183,11 +196,14 @@ const AddPaymentModal = () => {
       const paidEntries = paidSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
       const alreadyPaidIds = [...new Set(paidEntries.map((t) => t.marriageId))];
       setAlreadyPaidMarriages(alreadyPaidIds);
+      
       return { pendingEntries, alreadyPaidIds };
     } catch (e) {
-      console.error(e);
+      console.error('Error fetching payment info:', e);
       message.error('Failed to load payment information');
       return { pendingEntries: [], alreadyPaidIds: [] };
+    } finally {
+      setIsLoadingPending(false);
     }
   };
 
@@ -307,16 +323,39 @@ const AddPaymentModal = () => {
         };
 
         const txId = await createData(`/users/${user.uid}/programs/${selectedProgram.id}/transactions`, txData);
-        transactions.push({ marriageId, payerId: selectedMember, transactionId: txId, amount: individualAmount, paymentDate: dayjs(values.paymentDate).toISOString(), transactionNumber: txNumber });
+        transactions.push({ 
+          marriageId, 
+          payerId: selectedMember, 
+          transactionId: txId, 
+          amount: individualAmount, 
+          paymentDate: dayjs(values.paymentDate).toISOString(), 
+          transactionNumber: txNumber 
+        });
       }
 
+      // Update pending payment entries
       const toUpdate = transactions.filter((t) =>
         paymentPendingEntries.some((p) => p.closingMemberId === t.marriageId && p.memberId === t.payerId)
       );
       if (toUpdate.length > 0) await updatePendingPaymentEntries(toUpdate);
 
-      setPaymentSummary({ count: transactions.length, amount, method: values.paymentMethod, reference: values.onlineReference });
-      message.success({ content: <div><div className="font-medium">Payment Successful!</div><div className="text-xs">Processed {transactions.length} payment(s) of ₹{amount}</div></div>, duration: 3 });
+      setPaymentSummary({ 
+        count: transactions.length, 
+        amount, 
+        method: values.paymentMethod, 
+        reference: values.onlineReference 
+      });
+      
+      message.success({ 
+        content: (
+          <div>
+            <div className="font-medium">Payment Successful!</div>
+            <div className="text-xs">Processed {transactions.length} payment(s) of ₹{amount}</div>
+          </div>
+        ), 
+        duration: 3 
+      });
+      
       setTimeout(handleCloseDrawer, 2000);
     } catch (e) {
       console.error(e);
@@ -379,7 +418,10 @@ const AddPaymentModal = () => {
     try {
       const snap = await getDocs(collection(db, `users/${user.uid}/programs/${programId}/closing_groups`));
       dispatch(setClosingGroups(snap.docs.map((d) => ({
-        id: d.id, name: d.data().name, memberCount: d.data().memberCount || 0, members: d.data().members || [],
+        id: d.id, 
+        name: d.data().name, 
+        memberCount: d.data().memberCount || 0, 
+        members: d.data().members || [],
       }))));
     } catch (e) {
       console.error(e);
@@ -388,23 +430,28 @@ const AddPaymentModal = () => {
 
   /* ── Effects ── */
   useEffect(() => {
-    if (selectedProgram) { getClosingData(); getmemberData(); }
+    if (selectedProgram) { 
+      getClosingData(); 
+      getmemberData(); 
+    }
   }, [selectedProgram]);
 
   useEffect(() => {
-    if (selectedMember && selectedProgram) fetchMemberPaymentInfo(selectedMember);
+    if (selectedMember && selectedProgram) {
+      fetchMemberPaymentInfo(selectedMember);
+    }
   }, [selectedMember, selectedProgram]);
 
   /* ── Filter marriages by tab + search + closing group ── */
   useEffect(() => {
     let filtered = [...marriages];
 
-    /* Closing group filter */
+    // Closing group filter
     if (selectedClosingGroup) {
       filtered = filtered.filter((m) => m.closingGroupId === selectedClosingGroup);
     }
 
-    /* Text search */
+    // Text search
     if (marriageSearchText) {
       const s = marriageSearchText.toLowerCase();
       filtered = filtered.filter((m) =>
@@ -414,14 +461,24 @@ const AddPaymentModal = () => {
       );
     }
 
-    /* Status tab */
-    const pendingIds = paymentPendingEntries.filter((p) => p.memberId === selectedMember).map((p) => p.closingMemberId);
+    // Status tab - FIXED: Properly filter based on pending and paid status
+    const pendingIds = paymentPendingEntries
+      .filter((p) => p.memberId === selectedMember)
+      .map((p) => p.closingMemberId);
+
     if (activeStatusTab === 'pending') {
-      filtered = filtered.filter((m) => pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id));
+      // Show only marriages that have pending payments and are not already paid
+      filtered = filtered.filter((m) => 
+        pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)
+      );
     } else if (activeStatusTab === 'paid') {
+      // Show only marriages that are already paid
       filtered = filtered.filter((m) => alreadyPaidMarriages.includes(m.id));
     } else if (activeStatusTab === 'not_eligible') {
-      filtered = filtered.filter((m) => !pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id));
+      // Show marriages that have no pending and are not paid
+      filtered = filtered.filter((m) => 
+        !pendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)
+      );
     }
 
     setFilteredMarriages(filtered);
@@ -432,10 +489,18 @@ const AddPaymentModal = () => {
     setSelectedMember(memberId);
     setSelectedMarriages([]);
     setMarriageSearchText('');
+    setActiveStatusTab('pending');
+    
     const member = members.find((m) => m.id === memberId);
     form.setFieldsValue({ amount: member?.payAmount || 200 });
+    
+    // Fetch payment info for this member
     const { alreadyPaidIds } = await fetchMemberPaymentInfo(memberId);
-    if (alreadyPaidIds.length > 0) message.info(`${alreadyPaidIds.length} marriage(s) already paid`, 2);
+    
+    if (alreadyPaidIds.length > 0) {
+      message.info(`${alreadyPaidIds.length} marriage(s) already paid`, 2);
+    }
+    
     setCurrentStep(1);
   };
 
@@ -445,7 +510,7 @@ const AddPaymentModal = () => {
     setTotalAmount(amount * count);
   };
 
-  /* ── FIX: Select All Pending respects active filters ── */
+  /* ── Select All Pending ── */
   const handleSelectAllPending = () => {
     const pendingIds = paymentPendingEntries
       .filter((e) => e.memberId === selectedMember)
@@ -457,9 +522,12 @@ const AddPaymentModal = () => {
       .filter((m) => pendingIds.includes(m.id))
       .map((m) => m.id);
 
-    if (!available.length) { message.info('No pending payments in current filter'); return; }
+    if (!available.length) { 
+      message.info('No pending payments in current filter'); 
+      return; 
+    }
 
-    // Merge with existing selections (don't wipe other groups)
+    // Merge with existing selections
     setSelectedMarriages((prev) => [...new Set([...prev, ...available])]);
     message.success(`Selected ${available.length} pending payment(s)`);
   };
@@ -493,17 +561,42 @@ const AddPaymentModal = () => {
   };
 
   const handleNextStep = () => {
-    if (currentStep === 0 && !selectedProgram)          { message.warning('Please select a program'); return; }
-    if (currentStep === 1 && !selectedMember)           { message.warning('Please select a member'); return; }
-    if (currentStep === 2 && !selectedMarriages.length) { message.warning('Please select at least one marriage'); return; }
+    if (currentStep === 0 && !selectedProgram) { 
+      message.warning('Please select a program'); 
+      return; 
+    }
+    if (currentStep === 1 && !selectedMember) { 
+      message.warning('Please select a member'); 
+      return; 
+    }
+    if (currentStep === 2 && !selectedMarriages.length) { 
+      message.warning('Please select at least one marriage'); 
+      return; 
+    }
     setCurrentStep((s) => s + 1);
   };
 
   /* ── Computed stats ── */
   const stats = useMemo(() => {
-    const perAmount  = form.getFieldValue('amount') || 0;
-    const totalSel   = selectedMarriages.length;
-    const pendingSel = paymentPendingEntries.filter((p) => selectedMarriages.includes(p.closingMemberId) && p.memberId === selectedMember).length;
+    const perAmount = form.getFieldValue('amount') || 0;
+    const totalSel  = selectedMarriages.length;
+    const pendingSel = paymentPendingEntries
+      .filter((p) => selectedMarriages.includes(p.closingMemberId) && p.memberId === selectedMember)
+      .length;
+
+    // Derive from marriages array
+    const memberPendingIds = paymentPendingEntries
+      .filter((p) => p.memberId === selectedMember)
+      .map((p) => p.closingMemberId);
+
+    const pendingCount = marriages.filter(
+      (m) => memberPendingIds.includes(m.id) && !alreadyPaidMarriages.includes(m.id)
+    ).length;
+
+    const paidCount = marriages.filter(
+      (m) => alreadyPaidMarriages.includes(m.id)
+    ).length;
+
     return {
       totalSelected:      totalSel,
       pendingSelected:    pendingSel,
@@ -511,10 +604,10 @@ const AddPaymentModal = () => {
       perAmount,
       totalAmount:        perAmount * totalSel,
       availableMarriages: filteredMarriages.length,
-      pendingCount:       paymentPendingEntries.filter((p) => p.memberId === selectedMember).length,
-      paidCount:          alreadyPaidMarriages.length,
+      pendingCount,
+      paidCount,
     };
-  }, [selectedMarriages, paymentPendingEntries, selectedMember, alreadyPaidMarriages, filteredMarriages]);
+  }, [selectedMarriages, paymentPendingEntries, selectedMember, alreadyPaidMarriages, filteredMarriages, marriages, form]);
 
   const memberDetails = members.find((m) => m.id === selectedMember) || null;
 
@@ -615,10 +708,12 @@ const AddPaymentModal = () => {
             optionLabelProp="label"
           >
             {members.map((member) => {
+              // Count pending payments for this member
               const pending = paymentPendingEntries.filter((p) => p.memberId === member.id).length;
               return (
                 <Option
-                  key={member.id} value={member.id}
+                  key={member.id} 
+                  value={member.id}
                   label={member.displayName}
                   data-search={`${member.displayName} ${member.fatherName} ${member.registrationNumber} ${member.phone}`}
                 >
@@ -696,7 +791,6 @@ const AddPaymentModal = () => {
       </div>
 
       <div className="pmStepBody">
-
         {/* ── Status Tabs ── */}
         <div className="pmTabRow">
           {STATUS_TABS.map((tab) => {
@@ -799,7 +893,7 @@ const AddPaymentModal = () => {
 
         {/* ── Marriage list ── */}
         <div className="pmCardList">
-          {fetchingMarriages ? (
+          {fetchingMarriages || isLoadingPending ? (
             <div className="pmEmptyState">
               <Spin size="small" />
               <p>Loading closings…</p>
@@ -812,7 +906,11 @@ const AddPaymentModal = () => {
                     ? 'No matches found'
                     : selectedClosingGroup
                       ? 'No closings in this group'
-                      : 'No closings in this category'}
+                      : activeStatusTab === 'pending'
+                        ? 'No pending payments for this member'
+                        : activeStatusTab === 'paid'
+                          ? 'No paid closings found'
+                          : 'No closings in this category'}
                 </span>
               }
               image={Empty.PRESENTED_IMAGE_SIMPLE}

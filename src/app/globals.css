@@ -1,10 +1,12 @@
 @import "tailwindcss";
 
 :root {
-  /* Primary Colors - Trustworthy blues with softer tones */
-  --primary-blue: #3b82f6;
+  /* Primary Colors - Refined, confident blues */
+  --primary-blue: #2563eb;
   --primary-dark: #1e40af;
-  --primary-light: #bfdbfe;
+  --primary-deep: #172554;
+  --primary-light: #dbeafe;
+  --primary-soft: #eff6ff;
 
   /* Secondary Colors - Compassionate and financial tones */
   --accent-gold: #f59e0b;
@@ -12,19 +14,19 @@
   --accent-red: #ef4444;
   --accent-love: #ec4899;
 
-  /* Neutral Colors - Professional and soft */
-  --background: #f9fafb;
-  --foreground: #1f2937;
-  --gray-50: #f9fafb;
-  --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  /* Neutral Colors - Cool slate, pairs better with blue */
+  --background: #f1f5f9;
+  --foreground: #0f172a;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
 
   /* System Colors */
   --success: #10b981;
@@ -62,8 +64,11 @@
 @theme inline {
   /* Primary Colors */
   --color-primary: var(--primary-blue);
+  --color-primary-blue: var(--primary-blue);
   --color-primary-dark: var(--primary-dark);
+  --color-primary-deep: var(--primary-deep);
   --color-primary-light: var(--primary-light);
+  --color-primary-soft: var(--primary-soft);
 
   /* Accent Colors */
   --color-accent-gold: var(--accent-gold);
@@ -123,6 +128,15 @@ body {
 .ant-btn-primary:hover {
   background-color: var(--primary-dark) !important;
   border-color: var(--primary-dark) !important;
+}
+
+.ant-select-focused .ant-select-selector,
+.ant-select-selector:hover {
+  border-color: var(--primary-blue) !important;
+}
+
+.ant-select .ant-select-selector {
+  border-radius: 0.5rem !important;
 }
 
 .ant-popover-inner {

@@ -12,6 +12,7 @@ import GlobalPdfWidget from './Globalpdfwidget';
 
 export default function CustomDashboardLayout({ children }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const { user, loading } = useAuth();
@@ -134,14 +135,37 @@ export default function CustomDashboardLayout({ children }) {
 
   
 
+  // Toggle behavior: overlay drawer below lg, collapse on desktop
+  const handleToggleSidebar = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setMobileSidebarOpen((prev) => !prev);
+    } else {
+      setSidebarCollapsed((prev) => !prev);
+    }
+  };
+
   // Authenticated: show dashboard layout
   return (
-    <div className="flex h-screen bg-gray-50">
-      <SideBar collapsed={sidebarCollapsed} />
-      <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex h-screen bg-background">
+      <SideBar
+        collapsed={sidebarCollapsed}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
+      />
+
+      {/* Backdrop for mobile/tablet drawer */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 bg-gray-900/50 backdrop-blur-[2px] z-30 lg:hidden animate-fadeIn"
+          onClick={() => setMobileSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
         <TopBar
           sidebarCollapsed={sidebarCollapsed}
-          toggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
+          toggleSidebar={handleToggleSidebar}
           showNotifications={showNotifications}
           toggleNotifications={() => {
             setShowNotifications(!showNotifications);
@@ -153,8 +177,8 @@ export default function CustomDashboardLayout({ children }) {
             if (showNotifications) setShowNotifications(false);
           }}
         />
-        <main className="flex-1 overflow-auto p-6">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+        <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6">
+          <div className="bg-white rounded-xl shadow-sm p-3 sm:p-4 lg:p-6 border border-gray-100">
             {children}
           </div>
         </main>

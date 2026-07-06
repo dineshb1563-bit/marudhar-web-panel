@@ -1,5 +1,5 @@
 'use client'
-import { Button, Card, Descriptions, Modal, Typography, Tabs, Table, Tooltip, App,Tag ,Space} from 'antd'
+import { Button, Card, Descriptions, Modal, Typography, Tabs, Table, Tooltip, App, Tag, Space, Statistic, Empty, Alert, Image } from 'antd'
 import React, { useState, useEffect } from 'react'
 import { EyeOutlined,DeleteOutlined } from '@ant-design/icons';
 import { collection, query, where, getDocs } from 'firebase/firestore';
@@ -210,9 +210,48 @@ const columns = [
     }
   };
 
+  const isClosed = selectedMember?.marriage_flag === true || selectedMember?.status === 'closed';
+  const closingData = selectedMember?.closingData;
+
+  const closingPaymentColumns = [
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      render: (value) => (
+        <span className="font-semibold text-green-600">₹{Number(value || 0).toLocaleString('en-IN')}</span>
+      ),
+    },
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => (
+        <Tag color={status === 'paid' ? 'green' : 'red'} className="capitalize">{status || '-'}</Tag>
+      ),
+    },
+    {
+      title: 'Due Date',
+      dataIndex: 'dueDate',
+      key: 'dueDate',
+      render: (value) => value || '-',
+    },
+    {
+      title: 'Payment Date',
+      dataIndex: 'paymentDate',
+      key: 'paymentDate',
+      render: (value) => value || <Tag color="orange">Pending</Tag>,
+    },
+  ];
+
   return (
     <Modal
-      title={<Title level={3}>Member Details</Title>}
+      title={
+        <div className="flex items-center gap-3">
+          <Title level={3} style={{ margin: 0 }}>Member Details</Title>
+          {isClosed && <Tag color="orange" className="font-semibold">Closed Member</Tag>}
+        </div>
+      }
       open={isModalVisible}
       onCancel={handleCloseModal}
       footer={[
@@ -366,6 +405,114 @@ const columns = [
               />
             </div>
           </TabPane>
+
+          {isClosed && (
+            <TabPane tab={<span>Closing Details <Tag color="orange" style={{ marginLeft: 4 }}>Closed</Tag></span>} key="5">
+              <Alert
+                type="warning"
+                showIcon
+                className="mb-4"
+                message={`This member was closed on ${selectedMember.closing_date || (closingData?.closingDate ? moment(closingData.closingDate).format('DD/MM/YYYY') : '-')}`}
+                description={selectedMember.closingNotes ? `Notes: ${selectedMember.closingNotes}` : null}
+              />
+
+              {/* Closing / Marriage Info */}
+              <Card title="Closing Information" size="small" className="rounded-lg mb-4">
+                <Descriptions layout="vertical" bordered column={3} size="small">
+                  <Descriptions.Item label="Closing Date">
+                    {selectedMember.closing_date || '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Marriage Date">
+                    {selectedMember.marriage_date || '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Closed By">
+                    {closingData?.closedByName || 'Admin'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Payment Closing Date">
+                    {closingData?.closingDate ? moment(closingData.closingDate).format('DD/MM/YYYY HH:mm') : '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Payment Mode">
+                    {closingData?.paymentMode || '-'}
+                  </Descriptions.Item>
+                  <Descriptions.Item label="Closing Notes">
+                    {selectedMember.closingNotes || '-'}
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+
+              {/* Closing Payment Summary */}
+              {closingData ? (
+                <>
+                  <Card title="Closing Payment Summary" size="small" className="rounded-lg mb-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                      <Statistic
+                        title="Member Contributed"
+                        value={closingData.memberContributed || 0}
+                        prefix="₹"
+                        valueStyle={{ color: '#3f8600', fontSize: 18 }}
+                      />
+                      <Statistic
+                        title="Total Payments"
+                        value={closingData.membersCount || closingData.paymentDetails?.length || 0}
+                        valueStyle={{ fontSize: 18 }}
+                      />
+                      <Statistic
+                        title="Amount Given"
+                        value={closingData.amountGiven || 0}
+                        prefix="₹"
+                        valueStyle={{ color: '#1890ff', fontSize: 18 }}
+                      />
+                      <Statistic
+                        title="Old Pending"
+                        value={closingData.oldPending || 0}
+                        prefix="₹"
+                        valueStyle={{ color: '#cf1322', fontSize: 18 }}
+                      />
+                      <Statistic
+                        title="Net Amount Given"
+                        value={closingData.netAmount || 0}
+                        prefix="₹"
+                        valueStyle={{ color: '#722ed1', fontSize: 18, fontWeight: 600 }}
+                      />
+                      <Statistic
+                        title="Payment Mode"
+                        value={closingData.paymentMode || 'Cash'}
+                        valueStyle={{ fontSize: 18 }}
+                      />
+                    </div>
+                  </Card>
+
+                  {/* Payment History at Closing */}
+                  <Card title={`Payment History (${closingData.paymentDetails?.length || 0} payments)`} size="small" className="rounded-lg mb-4">
+                    <Table
+                      columns={closingPaymentColumns}
+                      dataSource={(closingData.paymentDetails || []).map((p, i) => ({ ...p, key: i }))}
+                      pagination={{ pageSize: 5 }}
+                      size="small"
+                      scroll={{ x: 'max-content' }}
+                      locale={{ emptyText: 'No payment history recorded at closing' }}
+                    />
+                  </Card>
+                </>
+              ) : (
+                <Card size="small" className="rounded-lg mb-4">
+                  <Empty description="Closing payment details not added yet. Add them from the closing form (Payment Details Editor)." />
+                </Card>
+              )}
+
+              {/* Invitation Card */}
+              {selectedMember.invitationCardURL && (
+                <Card title="Invitation Card" size="small" className="rounded-lg">
+                  <Image
+                    src={selectedMember.invitationCardURL}
+                    alt="Invitation Card"
+                    height={200}
+                    className="rounded-lg object-contain"
+                  />
+                </Card>
+              )}
+            </TabPane>
+          )}
         </Tabs>
       )}
       

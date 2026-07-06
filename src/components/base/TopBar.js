@@ -201,38 +201,34 @@ const TopBar = ({
   
     return unsubscribe;
   }, []);
-const getNamepage =()=>{
-    const path = usePathname();
-    console.log(path,"path")
-    const segments = path.split('/');
-    const pageName = segments[segments.length - 1];
+  const pathname = usePathname();
+  const getNamepage = () => {
+    const segments = pathname.split('/');
+    const pageName = segments[segments.length - 1] || 'Dashboard';
     return pageName.charAt(0).toUpperCase() + pageName.slice(1);
-}
+  };
   return (
     <>
-      <header className="bg-white h-16 px-6 flex items-center justify-between border-b border-gray-200 shadow-sm">
-        <div className="flex items-center gap-4">
-          <Tooltip title={sidebarCollapsed ? "Expand Sidebar" : "Collapse Sidebar"} placement="right">
-            <button 
+      <header className="bg-white/95 backdrop-blur-sm h-16 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 border-b border-gray-200/80 shadow-sm sticky top-0 z-30 flex-shrink-0">
+        <div className="flex items-center gap-2 lg:gap-4 min-w-0">
+          <Tooltip title="Toggle Sidebar" placement="right">
+            <button
               onClick={toggleSidebar}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-primary-blue"
-              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              className="p-2 hover:bg-blue-50 rounded-lg transition-colors text-gray-600 hover:text-primary-blue flex-shrink-0"
+              aria-label="Toggle sidebar"
             >
-              {sidebarCollapsed ? 
-                <FiMenu size={22} /> : 
-                <FiX size={22} />
-              }
+              <FiMenu size={22} />
             </button>
           </Tooltip>
 
-          <nav className="hidden sm:flex items-center gap-2 text-sm">
+          <nav className="hidden md:flex items-center gap-2 text-sm whitespace-nowrap">
             <span className="text-gray-400">Home</span>
             <FiChevronRight size={14} className="text-gray-300" />
-            <span className="text-gray-800 font-medium">{getNamepage()}</span>
+            <span className="text-gray-800 font-semibold">{getNamepage()}</span>
           </nav>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 min-w-0">
           {/* <div className={`relative hidden md:block transition-all duration-200 ${searchFocused ? 'w-72' : 'w-64'}`}>
             <input
               type="text"
@@ -243,26 +239,27 @@ const getNamepage =()=>{
             />
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
           </div> */}
-           <Select
-                            placeholder="Select Program/Yojana"
-                            size="large"
-                            className="w-[200px]"
-                            onChange={handleProgramSelect}
-                            value={selectedProgram ? selectedProgram.id : undefined}
-                          >
-                            {programList.map(program => (
-                              <Option key={program.id} value={program.id}>
-                                {program.name}
-                              </Option>
-                            ))}
-                          </Select>
-          <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block"></div>
-          <AddPaymentModal/>
-          <AddAgent/>
-          
-          {/* <AddProgram />  */}
+          <Select
+            placeholder="Select Program/Yojana"
+            size="large"
+            className="w-[140px] sm:w-[170px] lg:w-[200px] flex-shrink-0"
+            onChange={handleProgramSelect}
+            value={selectedProgram ? selectedProgram.id : undefined}
+          >
+            {programList.map(program => (
+              <Option key={program.id} value={program.id}>
+                {program.name}
+              </Option>
+            ))}
+          </Select>
+          <div className="h-6 w-px bg-gray-200 mx-1 hidden lg:block"></div>
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto flex-shrink min-w-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <AddPaymentModal/>
+            <AddAgent/>
+            {/* <AddProgram />  */}
             <AddMember/>
-          <RequestSection />
+            <RequestSection />
+          </div>
           {/* <Tooltip title="Messages">
             <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-primary-blue">
               <FiMail size={20} />
@@ -293,16 +290,20 @@ const getNamepage =()=>{
           <div className="relative">
             <button
               onClick={toggleUserMenu}
-              className="flex items-center gap-2 p-1.5 hover:bg-gray-100 rounded-lg transition-colors user-menu-trigger"
+              className="flex items-center gap-2 p-1.5 hover:bg-blue-50 rounded-xl transition-colors user-menu-trigger flex-shrink-0"
             >
-              <div className="w-8 h-8 bg-blue-900 rounded-full flex items-center justify-center text-white shadow-sm">
-                <FiUser size={16} />
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-full flex items-center justify-center text-white shadow-sm ring-2 ring-blue-100">
+                {user?.username ? (
+                  <span className="text-xs font-semibold">{user.username.charAt(0).toUpperCase()}</span>
+                ) : (
+                  <FiUser size={16} />
+                )}
               </div>
-              <span className="hidden md:block text-sm font-medium text-gray-700">
+              <span className="hidden lg:block text-sm font-medium text-gray-700 max-w-[120px] truncate">
               {user?.username || "User"}
               </span>
-              <svg 
-                className="w-4 h-4 text-gray-500 hidden md:block" 
+              <svg
+                className="w-4 h-4 text-gray-500 hidden lg:block"
                 fill="none" 
                 stroke="currentColor" 
                 viewBox="0 0 24 24"

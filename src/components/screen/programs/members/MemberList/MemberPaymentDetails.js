@@ -163,6 +163,7 @@ function MemberPaymentDetails({ visible, onClose, memberData, paymentReport, loa
             key: 'group',
             width: 120,
             render: (_, r) => {
+                console.log(r,"row data")
                 const gn = findClosingGroupName(r.closingGroupId);
                 return gn
                     ? <Tag color="purple" style={{ fontSize: 11 }}>{gn}</Tag>

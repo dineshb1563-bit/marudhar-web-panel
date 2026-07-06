@@ -86,7 +86,8 @@ const [loadingReport, setLoadingReport] = useState(false);
     // Filter options
     const statusFilterOptions = [
         { value: 'active', label: 'Active Members', color: 'green' },
-        { value: 'blocked', label: 'Blocked Members', color: 'red' }
+        { value: 'blocked', label: 'Blocked Members', color: 'red' },
+        { value: 'closed', label: 'Closed Members', color: 'orange' }
     ];
 
     const genderFilterOptions = [
@@ -194,7 +195,10 @@ const [loadingReport, setLoadingReport] = useState(false);
                 if (props.data.status === 'blocked') {
                     statusBadge = <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-1"></span>;
                     statusClass = 'bg-red-50';
-                } 
+                } else if (props.data.marriage_flag === true || props.data.status === 'closed') {
+                    statusBadge = <span className="inline-block w-2 h-2 rounded-full bg-orange-500 mr-1"></span>;
+                    statusClass = 'bg-orange-50';
+                }
 
                 return (
                     <div className={`flex items-center gap-2 relative ${statusClass}`}>
@@ -210,10 +214,10 @@ const [loadingReport, setLoadingReport] = useState(false);
                                 <h1 className="font-medium">{props.data.displayName}</h1>
                             </div>
                             <span className="text-xs text-gray-500">
-                                {props.data.status === 'blocked' ? 'Blocked' : 
-                                 props.data.delete_flag === true ? 'Deleted' : 
-                                 props.data.status === 'closed' ? 'Closed' : 
-                                 props.data.status === 'accepted' ? 'Active' : 
+                                {props.data.status === 'blocked' ? 'Blocked' :
+                                 props.data.delete_flag === true ? 'Deleted' :
+                                 (props.data.marriage_flag === true || props.data.status === 'closed') ? 'Closed' :
+                                 props.data.status === 'accepted' ? 'Active' :
                                  'Pending'}
                             </span>
                         </div>
@@ -337,15 +341,16 @@ const [loadingReport, setLoadingReport] = useState(false);
             <Button
                 type="default"
                 onClick={() => handleShowPaymentDetails(data)}
-                className="flex items-center justify-center w-auto h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border-blue-200 hover:scale-105 transition-transform" 
-                disabled={isDeleted || isBlocked || isClosed}
+                className="flex items-center justify-center w-auto h-8 rounded-lg bg-blue-50 hover:bg-blue-100 border-blue-200 hover:scale-105 transition-transform"
+                disabled={isDeleted}
             >
                 <MdOutlinePendingActions className="text-red-500" /> Payment Details
+                {isBlocked && <Tag color="red" style={{ marginLeft: 4 }}>Blocked</Tag>}
             </Button>
         </Tooltip>
     ),
     key: '2',
-    disabled: isDeleted || isBlocked || isClosed,
+    disabled: isDeleted,
                     },
                     {
                         label: (
@@ -429,16 +434,25 @@ const [loadingReport, setLoadingReport] = useState(false);
 
         // Apply status filter
         if (statusFilter === 'active') {
-            filteredData = filteredData.filter(member => 
-                member.status === 'accepted' && 
+            filteredData = filteredData.filter(member =>
+                member.status === 'accepted' &&
                 member.active_flag === true &&
+                member.marriage_flag !== true &&
                 !member.delete_flag
             );
         } else if (statusFilter === 'blocked') {
-            filteredData = filteredData.filter(member => 
-                member.status === 'blocked' && 
+            filteredData = filteredData.filter(member =>
+                member.status === 'blocked' &&
                 member.active_flag === false &&
                 !member.delete_flag
+            );
+        } else if (statusFilter === 'closed') {
+            // Same conditions used to fetch closing members in the closing component
+            filteredData = filteredData.filter(member =>
+                member.active_flag === true &&
+                member.delete_flag === false &&
+                member.marriage_flag === true &&
+                ['closed', 'accepted'].includes(member.status)
             );
         }
 

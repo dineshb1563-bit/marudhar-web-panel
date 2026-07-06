@@ -5,10 +5,11 @@ import {
     where,
     query,
     getDocs,
-    increment, 
+    increment,
   getDoc,
-  
+  writeBatch,
 } from "firebase/firestore";
+import dayjs from "dayjs";
 import { auth, db } from "./firebase";
 import { createSearchIndex } from "./commonFun";
 
@@ -367,6 +368,170 @@ export const sendFirebaseNotification = async (token,title,body,image,data) => {
 }
 
 
+/**
+ * Parse date values that may be 'DD-MM-YYYY' strings, Firestore Timestamps, or Dates.
+ */
+function parseAnyDate(value) {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") return value.toDate();
+  if (value instanceof Date) return value;
+  if (typeof value === "string") {
+    const parts = value.split(/[-/]/).map(Number);
+    if (parts.length === 3 && !parts.some(isNaN)) {
+      // DD-MM-YYYY
+      const [day, month, year] = parts;
+      if (year > 1900) return new Date(year, month - 1, day);
+    }
+    const d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  return null;
+}
+
+/**
+ * Generate missing payment_pending entries for one member against ALL closing members.
+ * Used when a member is unblocked — same logic & data shape as GenerateRasidEntry.
+ * Never duplicates: skips entries whose id `${closingMemberId}_${memberId}` already exists.
+ *
+ * @returns {Promise<{created:number, existing:number, skipped:number, totalClosing:number}>}
+ */
+export async function generateMissingClosingPayments(userUid, programId, memberId) {
+  // 1. Load the paying member
+  const memberRef = doc(db, `users/${userUid}/programs/${programId}/members/${memberId}`);
+  const memberSnap = await getDoc(memberRef);
+  if (!memberSnap.exists()) throw new Error("Member not found");
+  const payingMember = { id: memberSnap.id, ...memberSnap.data() };
+
+  // 2. Fetch all closing members (same query as the closing component)
+  const membersRef = collection(db, `users/${userUid}/programs/${programId}/members`);
+  const closingQuery = query(
+    membersRef,
+    where("active_flag", "==", true),
+    where("delete_flag", "==", false),
+    where("marriage_flag", "==", true),
+    where("status", "in", ["closed", "accepted"])
+  );
+  const closingSnap = await getDocs(closingQuery);
+  const closingMembers = closingSnap.docs
+    .map((d) => ({ id: d.id, ...d.data() }))
+    .filter((cm) => cm.id !== memberId); // never pay for own closing
+
+  // 2b. Build closingMemberId -> closingGroupId map from the closing_groups
+  // collection (source of truth — member doc may not always carry closingGroupId)
+  const groupMap = new Map();
+  try {
+    const groupsSnap = await getDocs(
+      collection(db, `users/${userUid}/programs/${programId}/closing_groups`)
+    );
+    groupsSnap.forEach((groupDoc) => {
+      const groupMembers = groupDoc.data().members || [];
+      groupMembers.forEach((gm) => {
+        if (gm?.memberId) groupMap.set(gm.memberId, groupDoc.id);
+      });
+    });
+  } catch (e) {
+    console.error("Error fetching closing groups for payment generation:", e);
+  }
+
+  const paymentsRef = collection(db, `users/${userUid}/programs/${programId}/payment_pending`);
+
+  // 3. Duplicate check — fetch ALL existing payment entries for this member once.
+  // Checks by closingMemberId field (not doc id), so entries created with random
+  // ids (addDoc) or deterministic ids are both caught. No duplicates possible.
+  const existingClosingIds = new Set();
+  const existingSnap = await getDocs(
+    query(paymentsRef, where("memberId", "==", memberId))
+  );
+  existingSnap.forEach((d) => {
+    const cid = d.data()?.closingMemberId;
+    if (cid) existingClosingIds.add(cid);
+  });
+
+  const batch = writeBatch(db);
+  let created = 0;
+  let existing = 0;
+  let skipped = 0;
+
+  for (const closingMember of closingMembers) {
+    const paymentId = `${closingMember.id}_${memberId}`;
+
+    if (existingClosingIds.has(closingMember.id)) {
+      existing++;
+      continue;
+    }
+
+    const marriageDate = closingMember.marriage_date || closingMember.closing_date;
+    const joinDate = payingMember.dateJoin || payingMember.createdAt;
+    const j = parseAnyDate(joinDate);
+    const m = parseAnyDate(marriageDate);
+
+    // Skip if member joined after this marriage/closing
+    if (j && m && j > m) {
+      skipped++;
+      continue;
+    }
+    // Skip if paying member was already closed before this closing
+    if (payingMember.marriage_flag === true) {
+      const ocd = parseAnyDate(payingMember.marriage_date || payingMember.closing_date);
+      if (ocd && m && ocd.getTime() <= m.getTime()) {
+        skipped++;
+        continue;
+      }
+    }
+
+    const payAmount = payingMember?.payAmount || 200;
+    const resolvedGroupId =
+      closingMember?.closingGroupId || groupMap.get(closingMember.id) || "";
+console.log(closingMember,"closingMember")
+    const paymentData = {
+      closingMemberId: closingMember.id,
+      closingGroupId: resolvedGroupId,
+      closingMemberName: closingMember?.displayName || "",
+      memberId: payingMember.id,
+      memberDetails: {
+        displayName: payingMember.displayName || "N/A",
+        registrationNumber: payingMember.registrationNumber || "N/A",
+        fatherName: payingMember.fatherName || "N/A",
+        photoURL: payingMember.photoURL || "",
+        phone: payingMember.phone || payingMember.phoneNo || "N/A",
+        dateJoin: payingMember.dateJoin || payingMember.createdAt || "N/A",
+        village: payingMember.village || "N/A",
+        district: payingMember.district || "N/A",
+        addedByName: payingMember.addedByName || "N/A",
+        agentId: payingMember.agentId || "",
+        currentStatus: "accepted",
+      },
+      status: "pending",
+      payAmount,
+      programId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      delete_flag: false,
+      dueDate: dayjs().add(30, "days").format("DD-MM-YYYY"),
+      isClosingMember: false,
+      paymentFor: closingMember?.displayName || "Marriage Case",
+      closingRegNo: closingMember?.registrationNumber || "",
+      closingFatherName: closingMember?.fatherName || "",
+      closing_date: marriageDate || "",
+      village: closingMember?.village || "",
+      jati: closingMember?.jati || "",
+      phone: closingMember?.phone || "",
+      notes: `Payment for ${closingMember?.displayName}'s marriage (generated on unblock)`,
+      paymentType: "contribution",
+      generatedOnUnblock: true,
+    };
+
+    batch.set(doc(paymentsRef, paymentId), paymentData);
+    created++;
+  }
+
+  if (created > 0) {
+    await batch.commit();
+  }
+
+  return { created, existing, skipped, totalClosing: closingMembers.length };
+}
+
 export async function toggleMemberBlockStatus(
   userUid,
   programId,
@@ -446,9 +611,6 @@ export async function toggleMemberBlockStatus(
       active_flag: activeFlag,
       updatedAt: new Date(),
     });
-    if(message){
-      message?.success("Member Blocked Successfully")
-    }
 
     return {
       memberId,
@@ -457,6 +619,36 @@ export async function toggleMemberBlockStatus(
       countChange,
       inactiveCount
     };
+  }).then(async (result) => {
+    if (message) {
+      message.success(
+        result.status === "blocked"
+          ? "Member Blocked Successfully"
+          : "Member Unblocked Successfully"
+      );
+    }
+
+    // 🔹 ON UNBLOCK: generate missing payment entries for all closing members
+    if (result.status === "accepted") {
+      try {
+        const payResult = await generateMissingClosingPayments(userUid, programId, memberId);
+        if (payResult.created > 0) {
+          message?.success(
+            `${payResult.created} pending payment ${payResult.created === 1 ? "entry" : "entries"} generated for closing members`
+          );
+        } else if (payResult.totalClosing > 0) {
+          message?.info("All closing payment entries already exist — nothing to generate");
+        }
+        result.paymentGeneration = payResult;
+      } catch (error) {
+        console.error("Error generating closing payments on unblock:", error);
+        message?.warning(
+          "Member unblocked, but failed to generate closing payment entries. Use 'Generate Rasid Entry' to create them manually."
+        );
+      }
+    }
+
+    return result;
   });
 }
 
